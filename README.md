@@ -1,4 +1,4 @@
-# SacReads
+# SacReads v1.0.0
 
 SacReads is a clean skeleton for discovering AI-recommended physical books from the Sacramento Public Library catalog and requesting them for pickup at a preferred branch.
 
