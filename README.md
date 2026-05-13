@@ -1,6 +1,6 @@
 # SacReads
 
-SacReads is a clean MVP skeleton for discovering mock AI-recommended physical books from the Sacramento Public Library catalog and requesting them for pickup at a preferred branch.
+SacReads is a clean skeleton for discovering AI-recommended physical books from the Sacramento Public Library catalog and requesting them for pickup at a preferred branch.
 
 ## Getting Started
 
@@ -15,6 +15,10 @@ Open `http://localhost:3000` to view the app.
 
 ## Notes
 
-- This MVP uses mock data only.
+- Uses mock data only.
 - No backend or Sacramento Public Library API integration is included yet.
 - The app uses Next.js App Router, TypeScript, and Tailwind CSS.
+
+## Future Plans
+
+- Connect to Vercel for webpage functionality
