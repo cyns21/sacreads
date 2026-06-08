@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import type { BookRecommendation } from "@/types/book";
+import type { SavedBook } from "@/types/book";
 
 type SavedBooksProps = {
-  books: BookRecommendation[];
+  books: SavedBook[];
   onRemove: (id: string) => void;
 };
 
@@ -32,6 +32,7 @@ export function SavedBooks({ books, onRemove }: SavedBooksProps) {
                   alt=""
                   className="h-16 rounded-md object-cover"
                   height={96}
+                  loading="lazy"
                   src={book.coverImageUrl}
                   unoptimized
                   width={64}
@@ -42,6 +43,7 @@ export function SavedBooks({ books, onRemove }: SavedBooksProps) {
               <div className="min-w-0">
                 <p className="truncate text-sm font-bold text-[#20231c]">{book.title}</p>
                 <p className="mt-1 truncate text-xs font-medium text-[#6a6257]">{book.author}</p>
+                <p className="mt-1 truncate text-xs font-medium text-[#8a8174]">{book.publicationYear}</p>
               </div>
               <button
                 className="self-start rounded-md border border-[#cfc4b3] px-3 py-2 text-xs font-bold text-[#555d50] transition hover:bg-[#fbf8f1]"

@@ -37,6 +37,27 @@ export type BookRecommendation = {
   };
 };
 
+export type ClientBook = Pick<
+  BookRecommendation,
+  | "id"
+  | "title"
+  | "author"
+  | "description"
+  | "whyThisFits"
+  | "coverImageUrl"
+  | "catalogUrl"
+  | "requestUrl"
+  | "source"
+  | "matchScore"
+  | "availabilityNote"
+  | "reviewSignals"
+  | "metadata"
+>;
+
+export type SavedBook = Pick<ClientBook, "id" | "title" | "author" | "coverImageUrl" | "requestUrl"> & {
+  publicationYear: string;
+};
+
 export type CatalogSearchFilters = {
   query: string;
   pickupBranch: string;

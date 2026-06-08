@@ -5,7 +5,11 @@ const navItems = [
   { label: "How it works", href: "#how-it-works" },
 ];
 
-export function Header() {
+type HeaderProps = {
+  savedCount?: number;
+};
+
+export function Header({ savedCount }: HeaderProps) {
   return (
     <header className="sticky top-0 z-20 border-b border-[#ded3c2] bg-[#f8f5ee]/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
@@ -22,7 +26,7 @@ export function Header() {
               href={item.href}
               key={item.href}
             >
-              {item.label}
+              {item.label === "Saved" && typeof savedCount === "number" ? `Saved ${savedCount}` : item.label}
             </a>
           ))}
         </nav>

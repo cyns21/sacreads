@@ -2,16 +2,16 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import type { BookRecommendation, BookReviewSignal } from "@/types/book";
+import type { ClientBook, BookReviewSignal } from "@/types/book";
 
 type BookCardProps = {
-  book: BookRecommendation;
+  book: ClientBook;
   isSaved: boolean;
-  onSave: (book: BookRecommendation) => void;
+  onSave: (book: ClientBook) => void;
 };
 
-function CoverFallback({ book }: { book: BookRecommendation }) {
-  const cover = book.cover ?? {
+function CoverFallback({ book }: { book: ClientBook }) {
+  const cover = {
     from: "#315c8c",
     to: "#d3a05f",
     spine: "#214d45",
@@ -50,7 +50,7 @@ function ReviewSignals({ signals }: { signals?: BookReviewSignal[] }) {
             className="block rounded-md bg-white px-3 py-2 text-sm transition hover:bg-[#f7fbff] focus:outline-none focus:ring-4 focus:ring-[#315c8c]/15"
             href={signal.url}
             key={signal.source}
-            rel="noreferrer"
+            rel="noopener noreferrer"
             target="_blank"
           >
             <span className="flex flex-wrap items-baseline justify-between gap-2">
@@ -88,6 +88,7 @@ export function BookCard({ book, isSaved, onSave }: BookCardProps) {
             alt={`${book.title} book cover`}
             className="min-h-52 w-full rounded-md bg-[#fbf8f1] object-cover shadow-inner"
             height={416}
+            loading="lazy"
             onError={() => setImageFailed(true)}
             src={book.coverImageUrl}
             unoptimized
@@ -142,13 +143,17 @@ export function BookCard({ book, isSaved, onSave }: BookCardProps) {
           <a
             className="rounded-md bg-[#214d45] px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-[#173f3a] focus:outline-none focus:ring-4 focus:ring-[#214d45]/20"
             href={book.requestUrl}
-            rel="noreferrer"
+            rel="noopener noreferrer"
             target="_blank"
           >
             Place Hold at SPL
           </a>
           <button
-            className="rounded-md border border-[#cfc4b3] px-4 py-3 text-sm font-bold text-[#555d50] transition hover:bg-[#fbf8f1] focus:outline-none focus:ring-4 focus:ring-[#8a8174]/15"
+            className={`rounded-md border px-4 py-3 text-sm font-bold transition focus:outline-none focus:ring-4 ${
+              isSaved
+                ? "border-[#214d45] bg-[#cbd8bc] text-[#214d45] hover:bg-[#bfd0ad] focus:ring-[#214d45]/15"
+                : "border-[#cfc4b3] text-[#555d50] hover:bg-[#fbf8f1] focus:ring-[#8a8174]/15"
+            }`}
             onClick={() => onSave(book)}
             type="button"
           >
