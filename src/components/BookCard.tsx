@@ -1,10 +1,74 @@
-import type { BookRecommendation } from "@/types/book";
+"use client";
+
+import Image from "next/image";
+import { useState } from "react";
+import type { BookRecommendation, BookReviewSignal } from "@/types/book";
 
 type BookCardProps = {
   book: BookRecommendation;
+  isSaved: boolean;
+  onSave: (book: BookRecommendation) => void;
 };
 
-export function BookCard({ book }: BookCardProps) {
+function CoverFallback({ book }: { book: BookRecommendation }) {
+  const cover = book.cover ?? {
+    from: "#315c8c",
+    to: "#d3a05f",
+    spine: "#214d45",
+  };
+
+  return (
+    <div
+      aria-label={`${book.title} cover placeholder`}
+      className="relative min-h-52 rounded-md shadow-inner"
+      role="img"
+      style={{
+        background: `linear-gradient(135deg, ${cover.from}, ${cover.to})`,
+      }}
+    >
+      <div className="absolute inset-y-0 left-0 w-5 rounded-l-md" style={{ backgroundColor: cover.spine }} />
+      <div className="absolute inset-x-5 top-5 h-px bg-white/45" />
+      <div className="absolute inset-x-5 bottom-6">
+        <div className="mb-3 h-2 w-16 rounded-full bg-white/70" />
+        <div className="h-2 w-24 rounded-full bg-white/50" />
+      </div>
+    </div>
+  );
+}
+
+function ReviewSignals({ signals }: { signals?: BookReviewSignal[] }) {
+  if (!signals || signals.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-5 border-l-4 border-[#315c8c] bg-[#eef4fb] px-4 py-3">
+      <p className="text-xs font-bold uppercase text-[#315c8c]">Review sources</p>
+      <div className="mt-3 grid gap-2">
+        {signals.map((signal) => (
+          <a
+            className="block rounded-md bg-white px-3 py-2 text-sm transition hover:bg-[#f7fbff] focus:outline-none focus:ring-4 focus:ring-[#315c8c]/15"
+            href={signal.url}
+            key={signal.source}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <span className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="font-bold text-[#20231c]">{signal.source}</span>
+              <span className="text-xs font-bold uppercase text-[#315c8c]">
+                {[signal.rating, signal.count].filter(Boolean).join(" · ")}
+              </span>
+            </span>
+            <span className="mt-1 block leading-6 text-[#4e5547]">{signal.note}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function BookCard({ book, isSaved, onSave }: BookCardProps) {
+  const [imageFailed, setImageFailed] = useState(false);
   const metadata = [
     ["Format", book.metadata.format],
     ["Audience", book.metadata.audience],
@@ -12,38 +76,41 @@ export function BookCard({ book }: BookCardProps) {
     ["Publication year", book.metadata.publicationYear],
   ];
 
+  if (book.metadata.pickupBranch) {
+    metadata.push(["Pickup branch", book.metadata.pickupBranch]);
+  }
+
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-lg border border-[#d8ccb9] bg-white shadow-sm">
-      <div className="grid gap-5 p-5 sm:grid-cols-[120px_1fr]">
-        <div
-          aria-label={`${book.title} cover placeholder`}
-          className="relative min-h-44 rounded-md shadow-inner"
-          role="img"
-          style={{
-            background: `linear-gradient(135deg, ${book.cover.from}, ${book.cover.to})`,
-          }}
-        >
-          <div
-            className="absolute inset-y-0 left-0 w-5 rounded-l-md"
-            style={{ backgroundColor: book.cover.spine }}
+      <div className="grid gap-5 p-5 sm:grid-cols-[132px_1fr]">
+        {book.coverImageUrl && !imageFailed ? (
+          <Image
+            alt={`${book.title} book cover`}
+            className="min-h-52 w-full rounded-md bg-[#fbf8f1] object-cover shadow-inner"
+            height={416}
+            onError={() => setImageFailed(true)}
+            src={book.coverImageUrl}
+            unoptimized
+            width={264}
           />
-          <div className="absolute inset-x-5 top-5 h-px bg-white/45" />
-          <div className="absolute inset-x-5 bottom-6">
-            <div className="mb-3 h-2 w-16 rounded-full bg-white/70" />
-            <div className="h-2 w-24 rounded-full bg-white/50" />
-          </div>
-        </div>
+        ) : (
+          <CoverFallback book={book} />
+        )}
 
         <div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <span className="rounded-md bg-[#cbd8bc] px-2.5 py-1 text-xs font-bold text-[#214d45]">
+              {book.matchScore ? `${Math.round(book.matchScore)}% match` : "Recommended"}
+            </span>
+            <span className="rounded-md bg-[#eef4fb] px-2.5 py-1 text-xs font-bold text-[#315c8c]">
+              SPL hold
+            </span>
+          </div>
           <h3 className="text-xl font-bold leading-7 text-[#20231c]">{book.title}</h3>
           <p className="mt-1 text-sm font-semibold text-[#555d50]">by {book.author}</p>
           <div className="mt-3 space-y-1 text-sm font-medium text-[#6a6257]">
-            <p>
-              {book.rating} <span aria-hidden="true">&middot;</span> Goodreads
-            </p>
-            <p>
-              {book.googleUsers} liked this book <span aria-hidden="true">&middot;</span> Google users
-            </p>
+            <p>{book.source === "spl-catalog" ? "Live catalog result" : "Catalog hold search"}</p>
+            <p>{book.availabilityNote ?? "Open SPL catalog to confirm current copies and place a hold"}</p>
           </div>
         </div>
       </div>
@@ -56,6 +123,8 @@ export function BookCard({ book }: BookCardProps) {
           <p className="mt-2 text-sm leading-6 text-[#4e5547]">{book.whyThisFits}</p>
         </div>
 
+        <ReviewSignals signals={book.reviewSignals} />
+
         <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
           {metadata.map(([label, value]) => (
             <div className="rounded-md border border-[#e4dacb] bg-[#fbf8f1] p-3" key={label}>
@@ -65,24 +134,25 @@ export function BookCard({ book }: BookCardProps) {
           ))}
         </dl>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-          <button
-            className="rounded-md border border-[#315c8c] px-4 py-3 text-sm font-bold text-[#315c8c] transition hover:bg-[#eef4fb] focus:outline-none focus:ring-4 focus:ring-[#315c8c]/15"
-            type="button"
+        {book.availabilityNote ? (
+          <p className="mt-4 text-xs font-semibold uppercase text-[#6a6257]">{book.availabilityNote}</p>
+        ) : null}
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <a
+            className="rounded-md bg-[#214d45] px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-[#173f3a] focus:outline-none focus:ring-4 focus:ring-[#214d45]/20"
+            href={book.requestUrl}
+            rel="noreferrer"
+            target="_blank"
           >
-            Check SPL Catalog
-          </button>
-          <button
-            className="rounded-md bg-[#214d45] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#173f3a] focus:outline-none focus:ring-4 focus:ring-[#214d45]/20"
-            type="button"
-          >
-            Request Physical Copy
-          </button>
+            Place Hold at SPL
+          </a>
           <button
             className="rounded-md border border-[#cfc4b3] px-4 py-3 text-sm font-bold text-[#555d50] transition hover:bg-[#fbf8f1] focus:outline-none focus:ring-4 focus:ring-[#8a8174]/15"
+            onClick={() => onSave(book)}
             type="button"
           >
-            Save
+            {isSaved ? "Saved" : "Save"}
           </button>
         </div>
       </div>

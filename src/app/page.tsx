@@ -1,8 +1,8 @@
-import { BookCard } from "@/components/BookCard";
+import Image from "next/image";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { HowItWorks } from "@/components/HowItWorks";
-import { SearchForm } from "@/components/SearchForm";
+import { SacReadsApp } from "@/components/SacReadsApp";
 import { mockBooks } from "@/data/mockBooks";
 
 export default function Home() {
@@ -51,12 +51,23 @@ export default function Home() {
               <div className="grid gap-3">
                 {mockBooks.map((book) => (
                   <div className="grid grid-cols-[56px_1fr] gap-3 rounded-md bg-white p-3" key={book.title}>
-                    <div
-                      className="h-20 rounded-md"
-                      style={{
-                        background: `linear-gradient(135deg, ${book.cover.from}, ${book.cover.to})`,
-                      }}
-                    />
+                    {book.coverImageUrl ? (
+                      <Image
+                        alt=""
+                        className="h-20 rounded-md object-cover"
+                        height={120}
+                        src={book.coverImageUrl}
+                        unoptimized
+                        width={84}
+                      />
+                    ) : (
+                      <div
+                        className="h-20 rounded-md"
+                        style={{
+                          background: `linear-gradient(135deg, ${book.cover?.from}, ${book.cover?.to})`,
+                        }}
+                      />
+                    )}
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold text-[#20231c]">{book.title}</p>
                       <p className="mt-1 truncate text-xs font-medium text-[#6a6257]">{book.author}</p>
@@ -76,25 +87,7 @@ export default function Home() {
           </div>
         </section>
 
-        <SearchForm />
-
-        <section className="border-b border-[#ded3c2] bg-[#f8f5ee]" id="recommendations">
-          <div className="mx-auto max-w-6xl px-6 py-16">
-            <div className="mb-8 max-w-3xl">
-              <p className="mb-3 text-sm font-bold uppercase text-[#8b4c35]">Local picks</p>
-              <h2 className="text-3xl font-bold text-[#20231c] sm:text-4xl">Recommended physical books.</h2>
-              <p className="mt-4 text-base leading-7 text-[#555d50]">
-                Review the fit, library metadata, and pickup actions for each title.
-              </p>
-            </div>
-
-            <div className="grid gap-5 lg:grid-cols-3">
-              {mockBooks.map((book) => (
-                <BookCard book={book} key={book.title} />
-              ))}
-            </div>
-          </div>
-        </section>
+        <SacReadsApp initialBooks={mockBooks} />
 
         <HowItWorks />
       </main>

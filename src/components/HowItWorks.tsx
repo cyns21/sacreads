@@ -5,11 +5,11 @@ const steps = [
   },
   {
     title: "SacReads searches with your library filters",
-    copy: "Use branch, format, audience, language, publication year, mood, and genre filters.",
+    copy: "A lightweight recommendation ranker scores live catalog results when available, then fills gaps from a curated physical-book pool.",
   },
   {
     title: "Pick a recommendation and request it through Sacramento Public Library",
-    copy: "Review the fit, check the local catalog, and choose the physical copy you want to request.",
+    copy: "Review the fit, compare Goodreads and Google Books source links, then open the SPL catalog to place a hold.",
   },
 ];
 
