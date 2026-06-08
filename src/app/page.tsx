@@ -1,6 +1,10 @@
 import { SacReadsHome } from "@/components/SacReadsHome";
-import { mockBooks } from "@/data/mockBooks";
+import { getStarterRecommendations } from "@/data/mockBooks";
 
-export default function Home() {
-  return <SacReadsHome initialBooks={mockBooks} />;
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const starterBooks = await getStarterRecommendations();
+
+  return <SacReadsHome initialBooks={starterBooks} />;
 }

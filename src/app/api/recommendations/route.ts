@@ -22,6 +22,9 @@ function normalizeFilters(value: unknown): CatalogSearchFilters {
     yearTo: stringValue(input.yearTo, defaultFilters.yearTo),
     mood: stringValue(input.mood, defaultFilters.mood),
     genre: stringValue(input.genre, defaultFilters.genre),
+    authorContains: stringValue(input.authorContains, defaultFilters.authorContains).slice(0, 120),
+    minimumRating: stringValue(input.minimumRating, defaultFilters.minimumRating),
+    maxPages: stringValue(input.maxPages, defaultFilters.maxPages),
   };
 }
 

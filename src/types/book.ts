@@ -12,6 +12,8 @@ export type BookRecommendation = {
   author: string;
   isbn?: string;
   rating?: string;
+  ratingAverage?: number;
+  ratingCount?: number;
   googleUsers?: string;
   description: string;
   whyThisFits: string;
@@ -34,6 +36,8 @@ export type BookRecommendation = {
     language: string;
     publicationYear: string;
     pickupBranch?: string;
+    pageCount?: number;
+    genreTags?: string[];
   };
 };
 
@@ -50,6 +54,9 @@ export type ClientBook = Pick<
   | "source"
   | "matchScore"
   | "availabilityNote"
+  | "rating"
+  | "ratingAverage"
+  | "ratingCount"
   | "reviewSignals"
   | "metadata"
 >;
@@ -69,4 +76,7 @@ export type CatalogSearchFilters = {
   yearTo: string;
   mood: string;
   genre: string;
+  authorContains: string;
+  minimumRating: string;
+  maxPages: string;
 };

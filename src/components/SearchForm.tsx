@@ -9,6 +9,8 @@ import {
   formats,
   genres,
   languages,
+  maxPageOptions,
+  minimumRatings,
   moods,
 } from "@/data/searchOptions";
 import type { CatalogSearchFilters } from "@/types/book";
@@ -65,6 +67,31 @@ function YearField({ label, name, placeholder, value, onChange }: YearFieldProps
         onChange={(event) => onChange(name, event.target.value)}
         placeholder={placeholder}
         type="number"
+        value={value}
+      />
+    </label>
+  );
+}
+
+type TextFieldProps = {
+  label: string;
+  name: keyof Pick<CatalogSearchFilters, "authorContains">;
+  placeholder: string;
+  value: string;
+  onChange: (name: keyof CatalogSearchFilters, value: string) => void;
+};
+
+function TextField({ label, name, placeholder, value, onChange }: TextFieldProps) {
+  return (
+    <label className="flex flex-col gap-2 text-sm font-semibold text-[#34392f]" htmlFor={name}>
+      {label}
+      <input
+        className="h-12 rounded-md border border-[#cfc4b3] bg-white px-3 text-sm font-medium text-[#20231c] outline-none transition placeholder:text-[#8a8174] focus:border-[#315c8c] focus:ring-4 focus:ring-[#315c8c]/15"
+        id={name}
+        name={name}
+        onChange={(event) => onChange(name, event.target.value)}
+        placeholder={placeholder}
+        type="text"
         value={value}
       />
     </label>
@@ -144,6 +171,27 @@ export function SearchForm({ isLoading, onSearch }: SearchFormProps) {
               value={filters.audience}
             />
             <SelectField label="Mood" name="mood" onChange={updateFilter} options={moods} value={filters.mood} />
+            <TextField
+              label="Author contains"
+              name="authorContains"
+              onChange={updateFilter}
+              placeholder="Agatha, Henry, Grann..."
+              value={filters.authorContains}
+            />
+            <SelectField
+              label="Minimum rating"
+              name="minimumRating"
+              onChange={updateFilter}
+              options={minimumRatings}
+              value={filters.minimumRating}
+            />
+            <SelectField
+              label="Length"
+              name="maxPages"
+              onChange={updateFilter}
+              options={maxPageOptions}
+              value={filters.maxPages}
+            />
             <YearField
               label="Publication year from"
               name="yearFrom"

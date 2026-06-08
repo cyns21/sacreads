@@ -76,6 +76,14 @@ export function BookCard({ book, isSaved, onSave }: BookCardProps) {
     ["Publication year", book.metadata.publicationYear],
   ];
 
+  if (book.metadata.pageCount) {
+    metadata.push(["Pages", `${book.metadata.pageCount}`]);
+  }
+
+  if (book.rating) {
+    metadata.push(["Rating", book.rating]);
+  }
+
   if (book.metadata.pickupBranch) {
     metadata.push(["Pickup branch", book.metadata.pickupBranch]);
   }
@@ -151,10 +159,15 @@ export function BookCard({ book, isSaved, onSave }: BookCardProps) {
           <button
             className={`rounded-md border px-4 py-3 text-sm font-bold transition focus:outline-none focus:ring-4 ${
               isSaved
-                ? "border-[#214d45] bg-[#cbd8bc] text-[#214d45] hover:bg-[#bfd0ad] focus:ring-[#214d45]/15"
+                ? "cursor-not-allowed border-[#214d45] bg-[#cbd8bc] text-[#214d45] focus:ring-[#214d45]/15"
                 : "border-[#cfc4b3] text-[#555d50] hover:bg-[#fbf8f1] focus:ring-[#8a8174]/15"
             }`}
-            onClick={() => onSave(book)}
+            disabled={isSaved}
+            onClick={() => {
+              if (!isSaved) {
+                onSave(book);
+              }
+            }}
             type="button"
           >
             {isSaved ? "Saved" : "Save"}

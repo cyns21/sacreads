@@ -29,7 +29,7 @@ type AspenSearchResponse = {
   error?: string;
 };
 
-const recommendationCount = 6;
+const recommendationCount = 10;
 const enrichmentTimeoutMs = 1200;
 
 function getQuery(filters: CatalogSearchFilters) {
@@ -39,6 +39,7 @@ function getQuery(filters: CatalogSearchFilters) {
     filters.mood !== "Any mood" ? filters.mood : "",
     filters.format === "Picture Book" ? "picture book" : "",
     filters.bookType !== "Any" ? filters.bookType : "",
+    filters.authorContains,
   ];
 
   return pieces.filter(Boolean).join(" ").trim() || "library books";
@@ -67,7 +68,7 @@ function getAspenSearchUrl(filters: CatalogSearchFilters) {
     searchIndex: "Keyword",
     source: "local",
     sort: "relevance",
-    pageSize: "18",
+    pageSize: "15",
     includeSortList: "false",
     availability_toggle: "available",
   });
@@ -80,6 +81,42 @@ function getAspenSearchUrl(filters: CatalogSearchFilters) {
   }
 
   return `${SPL_CATALOG_BASE_URL}/API/SearchAPI?${params.toString()}`;
+}
+
+function getMinimumRating(filters: CatalogSearchFilters) {
+  const rating = Number.parseFloat(filters.minimumRating);
+  return Number.isNaN(rating) ? undefined : rating;
+}
+
+function getMaxPages(filters: CatalogSearchFilters) {
+  const match = filters.maxPages.match(/\d+/);
+
+  if (!match) {
+    return undefined;
+  }
+
+  const pages = Number.parseInt(match[0], 10);
+  return Number.isNaN(pages) ? undefined : pages;
+}
+
+function matchesExtendedFilters(book: BookRecommendation, filters: CatalogSearchFilters) {
+  const authorNeedle = filters.authorContains.trim().toLowerCase();
+  const minimumRating = getMinimumRating(filters);
+  const maxPages = getMaxPages(filters);
+
+  if (authorNeedle && !book.author.toLowerCase().includes(authorNeedle)) {
+    return false;
+  }
+
+  if (typeof minimumRating === "number" && (book.ratingAverage ?? 0) < minimumRating) {
+    return false;
+  }
+
+  if (typeof maxPages === "number" && (book.metadata.pageCount ?? Number.POSITIVE_INFINITY) > maxPages) {
+    return false;
+  }
+
+  return true;
 }
 
 function getPhysicalFormats(item: AspenCatalogItem) {
@@ -199,6 +236,7 @@ function mapAspenItem(item: AspenCatalogItem, filters: CatalogSearchFilters): Bo
       language: item.language ?? (filters.language === "Any language" ? "Not listed" : filters.language),
       publicationYear: "Not listed",
       pickupBranch: filters.pickupBranch,
+      genreTags: [filters.genre, filters.mood].filter((value) => !value.startsWith("Any")),
     },
   };
 }
@@ -238,10 +276,16 @@ function buildCuratedRecommendations(filters: CatalogSearchFilters) {
       filters.bookType === "Any" ||
       book.keywords?.some((keyword) => keyword.toLowerCase() === filters.bookType.toLowerCase());
 
-    return formatMatches && audienceMatches && languageMatches && bookTypeMatches;
+    return (
+      formatMatches &&
+      audienceMatches &&
+      languageMatches &&
+      bookTypeMatches &&
+      matchesExtendedFilters(book, filters)
+    );
   });
 
-  return rankRecommendations(filtered.length >= 3 ? filtered : branchLinked, filters);
+  return rankRecommendations(filtered, filters);
 }
 
 async function getLiveCatalogBooks(filters: CatalogSearchFilters) {
@@ -311,8 +355,10 @@ export async function getSacReadsRecommendations(filters: CatalogSearchFilters) 
   const rankedBooks = rankRecommendations(
     mergeRecommendations([...liveBooks, ...curatedBooks]).map((book) => withBranchHoldLink(book, filters)),
     filters,
-  ).slice(0, recommendationCount);
-  const shouldEnrich = liveBooks.length > 0 || Boolean(process.env.GOOGLE_BOOKS_API_KEY);
+  )
+    .filter((book) => matchesExtendedFilters(book, filters))
+    .slice(0, recommendationCount);
+  const shouldEnrich = rankedBooks.length > 0;
   const enrichedBooks = shouldEnrich
     ? await withTimeout(enrichBookRecommendations(rankedBooks), rankedBooks, enrichmentTimeoutMs)
     : rankedBooks;

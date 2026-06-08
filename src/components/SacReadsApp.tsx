@@ -38,6 +38,9 @@ function toClientBook(book: BookRecommendation): ClientBook {
     source: book.source,
     matchScore: book.matchScore,
     availabilityNote: book.availabilityNote,
+    rating: book.rating,
+    ratingAverage: book.ratingAverage,
+    ratingCount: book.ratingCount,
     reviewSignals: book.reviewSignals?.slice(0, 3),
     metadata: {
       format: book.metadata.format,
@@ -45,6 +48,8 @@ function toClientBook(book: BookRecommendation): ClientBook {
       language: book.metadata.language,
       publicationYear: book.metadata.publicationYear,
       pickupBranch: book.metadata.pickupBranch,
+      pageCount: book.metadata.pageCount,
+      genreTags: book.metadata.genreTags?.slice(0, 5),
     },
   };
 }
@@ -218,7 +223,7 @@ export function SacReadsApp({
       const nextBooks = data.books.slice(0, maxRecommendations).map((book) => toClientBook(book));
 
       setRecommendedBooks(nextBooks);
-      onRecommendationsLoaded?.(nextBooks.slice(0, 3));
+      onRecommendationsLoaded?.(nextBooks.length > 0 ? nextBooks.slice(0, 3) : initialClientBooks.slice(0, 3));
       setStatus(
         nextBooks.length > 0
           ? data.message

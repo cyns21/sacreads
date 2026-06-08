@@ -91,6 +91,18 @@ function buildWhyThisFits(book: BookRecommendation, filters: CatalogSearchFilter
     reasons.push(`physical pickup at ${filters.pickupBranch}`);
   }
 
+  if (filters.minimumRating !== "Any rating") {
+    reasons.push(`${filters.minimumRating}+ rating`);
+  }
+
+  if (filters.maxPages !== "Any length") {
+    reasons.push(filters.maxPages.toLowerCase());
+  }
+
+  if (filters.authorContains.trim()) {
+    reasons.push(`author match for "${filters.authorContains.trim()}"`);
+  }
+
   if (reasons.length === 0) {
     return book.whyThisFits;
   }
@@ -113,6 +125,9 @@ export function rankRecommendations(books: BookRecommendation[], filters: Catalo
         book.metadata.format,
         book.metadata.audience,
         book.metadata.language,
+        book.rating,
+        String(book.metadata.pageCount ?? ""),
+        ...(book.metadata.genreTags ?? []),
         ...(book.keywords ?? []),
       ]
         .join(" ")
@@ -138,6 +153,10 @@ export function rankRecommendations(books: BookRecommendation[], filters: Catalo
         score += 8;
       }
 
+      if (filters.authorContains.trim() && book.author.toLowerCase().includes(filters.authorContains.toLowerCase())) {
+        score += 16;
+      }
+
       if (filters.bookType !== "Any" && includesAny(searchable, [filters.bookType])) {
         score += 6;
       }
@@ -151,6 +170,12 @@ export function rankRecommendations(books: BookRecommendation[], filters: Catalo
       }
 
       score += yearScore(book.metadata.publicationYear, filters.yearFrom, filters.yearTo);
+
+      const minimumRating = Number.parseFloat(filters.minimumRating);
+
+      if (!Number.isNaN(minimumRating) && (book.ratingAverage ?? 0) >= minimumRating) {
+        score += 8;
+      }
 
       return {
         ...book,

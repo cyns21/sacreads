@@ -17,6 +17,8 @@ type GoogleBookVolume = {
     language?: string;
     averageRating?: number;
     ratingsCount?: number;
+    pageCount?: number;
+    categories?: string[];
     infoLink?: string;
     imageLinks?: {
       thumbnail?: string;
@@ -36,6 +38,8 @@ type OpenLibrarySearchDoc = {
   language?: string[];
   ratings_average?: number;
   ratings_count?: number;
+  number_of_pages_median?: number;
+  subject?: string[];
 };
 
 type OpenLibraryWorkResponse = {
@@ -47,8 +51,15 @@ type MetadataPatch = {
   coverImageUrl?: string;
   publicationYear?: string;
   language?: string;
+  pageCount?: number;
+  genreTags?: string[];
+  ratingAverage?: number;
+  ratingCount?: number;
   reviewSignal?: BookReviewSignal;
 };
+
+const googleBooksCache = new Map<string, Promise<MetadataPatch | undefined>>();
+const openLibraryCache = new Map<string, Promise<MetadataPatch | undefined>>();
 
 const languageNames: Record<string, string> = {
   en: "English",
@@ -107,7 +118,7 @@ async function fetchJson<T>(url: string) {
       "User-Agent": "SacReads portfolio project",
     },
     next: { revalidate: 60 * 60 * 24 },
-    signal: AbortSignal.timeout(4500),
+    signal: AbortSignal.timeout(2500),
   });
 
   if (!response.ok) {
@@ -126,19 +137,31 @@ function googleBooksQuery(book: BookRecommendation) {
 }
 
 async function getGoogleBooksPatch(book: BookRecommendation): Promise<MetadataPatch | undefined> {
-  const apiKey = process.env.GOOGLE_BOOKS_API_KEY;
+  const cacheKey = `google:${book.isbn ?? `${book.title}:${book.author}`}`;
 
-  if (!apiKey) {
-    return undefined;
+  if (googleBooksCache.has(cacheKey)) {
+    return googleBooksCache.get(cacheKey);
   }
+
+  const lookup = fetchGoogleBooksPatch(book).catch(() => undefined);
+  googleBooksCache.set(cacheKey, lookup);
+
+  return lookup;
+}
+
+async function fetchGoogleBooksPatch(book: BookRecommendation): Promise<MetadataPatch | undefined> {
+  const apiKey = process.env.GOOGLE_BOOKS_API_KEY;
 
   const params = new URLSearchParams({
     q: googleBooksQuery(book),
     maxResults: "1",
     printType: "books",
     projection: "lite",
-    key: apiKey,
   });
+
+  if (apiKey) {
+    params.set("key", apiKey);
+  }
 
   const payload = await fetchJson<GoogleBooksResponse>(`https://www.googleapis.com/books/v1/volumes?${params}`);
   const volume = payload.items?.[0]?.volumeInfo;
@@ -157,6 +180,10 @@ async function getGoogleBooksPatch(book: BookRecommendation): Promise<MetadataPa
     coverImageUrl: coverImageUrl?.replace(/^http:/, "https:"),
     publicationYear: volume.publishedDate?.slice(0, 4),
     language: volume.language ? languageNames[volume.language] : undefined,
+    pageCount: volume.pageCount,
+    genreTags: volume.categories?.slice(0, 5),
+    ratingAverage: volume.averageRating,
+    ratingCount: ratingsCount > 0 ? ratingsCount : undefined,
     reviewSignal: {
       source: "Google Books",
       rating: rating ?? "Google reviews",
@@ -172,7 +199,8 @@ async function getGoogleBooksPatch(book: BookRecommendation): Promise<MetadataPa
 function openLibrarySearchUrl(book: BookRecommendation) {
   const params = new URLSearchParams({
     limit: "1",
-    fields: "key,cover_i,first_publish_year,language,ratings_average,ratings_count",
+    fields:
+      "key,cover_i,first_publish_year,language,ratings_average,ratings_count,number_of_pages_median,subject",
   });
 
   if (book.isbn) {
@@ -198,6 +226,19 @@ async function getOpenLibraryDescription(workKey?: string) {
 }
 
 async function getOpenLibraryPatch(book: BookRecommendation): Promise<MetadataPatch | undefined> {
+  const cacheKey = `openlibrary:${book.isbn ?? `${book.title}:${book.author}`}`;
+
+  if (openLibraryCache.has(cacheKey)) {
+    return openLibraryCache.get(cacheKey);
+  }
+
+  const lookup = fetchOpenLibraryPatch(book).catch(() => undefined);
+  openLibraryCache.set(cacheKey, lookup);
+
+  return lookup;
+}
+
+async function fetchOpenLibraryPatch(book: BookRecommendation): Promise<MetadataPatch | undefined> {
   const payload = await fetchJson<OpenLibrarySearchResponse>(openLibrarySearchUrl(book));
   const doc = payload.docs?.[0];
 
@@ -222,6 +263,10 @@ async function getOpenLibraryPatch(book: BookRecommendation): Promise<MetadataPa
     language: doc.language?.find((language) => languageNames[language])
       ? languageNames[doc.language.find((language) => languageNames[language]) as string]
       : undefined,
+    pageCount: doc.number_of_pages_median,
+    genreTags: doc.subject?.slice(0, 5),
+    ratingAverage: rating ? doc.ratings_average : undefined,
+    ratingCount: typeof doc.ratings_count === "number" && doc.ratings_count > 0 ? doc.ratings_count : undefined,
     reviewSignal:
       rating || count
         ? {
@@ -280,9 +325,17 @@ function applyPatch(book: BookRecommendation, patch?: MetadataPatch) {
   const shouldFillLanguage = !book.metadata.language || book.metadata.language === "Not listed";
   const shouldFillPublicationYear =
     !book.metadata.publicationYear || book.metadata.publicationYear === "Not listed";
+  const shouldFillPageCount = typeof book.metadata.pageCount !== "number";
 
   return {
     ...book,
+    rating:
+      typeof patch.ratingAverage === "number"
+        ? formatRating(patch.ratingAverage)
+        : book.rating,
+    ratingAverage: patch.ratingAverage ?? book.ratingAverage,
+    ratingCount: patch.ratingCount ?? book.ratingCount,
+    googleUsers: patch.ratingCount ? `${formatCount(patch.ratingCount)} ratings` : book.googleUsers,
     description: patch.description ?? book.description,
     coverImageUrl: patch.coverImageUrl ?? book.coverImageUrl,
     metadata: {
@@ -291,6 +344,8 @@ function applyPatch(book: BookRecommendation, patch?: MetadataPatch) {
       publicationYear: shouldFillPublicationYear
         ? patch.publicationYear ?? book.metadata.publicationYear
         : book.metadata.publicationYear,
+      pageCount: shouldFillPageCount ? patch.pageCount ?? book.metadata.pageCount : book.metadata.pageCount,
+      genreTags: patch.genreTags ?? book.metadata.genreTags,
     },
   };
 }
