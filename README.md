@@ -1,4 +1,4 @@
-# SacReads
+# SacReads v1.0.0
 
 SacReads recommends physical books for Sacramento Public Library readers, ranks them by reading request
 and branch filters, and opens hold-ready SPL catalog searches for pickup.
@@ -37,3 +37,7 @@ new integrations.
 
 - Recommendations include SPL hold/search links, description enrichment, and review-source links.
 - The app uses Next.js App Router, TypeScript, and Tailwind CSS.
+
+## Future Plans
+
+- Connect to Vercel for webpage functionality
