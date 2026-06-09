@@ -1,27 +1,44 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BookCard } from "@/components/BookCard";
 import { SavedBooks } from "@/components/SavedBooks";
 import { SearchForm } from "@/components/SearchForm";
-import type { BookRecommendation, CatalogSearchFilters, ClientBook, SavedBook } from "@/types/book";
+import { sacLibraryBooks } from "@/data/sacLibraryBooks";
+import type { BookRecommendation, BrowseFilters, ClientBook, FilterOption, SavedBook } from "@/types/book";
 
 const savedBooksKey = "savedBooks";
 const legacySavedBooksKey = "sacreads:saved-books";
-const maxRecommendations = 10;
+const initialVisibleRecommendations = 12;
 const maxSavedBooks = 24;
-
-type RecommendationsResponse = {
-  books: BookRecommendation[];
-  mode: "spl-catalog" | "curated-catalog" | "seed-data";
-  message: string;
-  catalogUrl: string;
-  error?: string;
+const genreOrder = [
+  "Mystery",
+  "Fantasy",
+  "Romance",
+  "Adventure",
+  "Science Fiction",
+  "Horror",
+  "Historical Fiction",
+  "Crime",
+  "Biography",
+  "Drama",
+  "Nonfiction",
+  "Uncategorized",
+];
+const formatOrder = ["Book", "Large Print", "Audiobook", "Graphic Novel", "Picture Book"];
+const languageOrder = ["English", "Spanish"];
+const audienceOrder = ["Adult / General", "Young Adult / Juvenile"];
+const defaultFilters: BrowseFilters = {
+  genre: "",
+  format: "",
+  language: "",
+  audience: "",
+  yearFrom: "",
+  yearTo: "",
+  sort: "Title A-Z",
 };
 
 type SacReadsAppProps = {
-  initialBooks: BookRecommendation[];
-  onRecommendationsLoaded?: (books: ClientBook[]) => void;
   onSavedCountChange?: (count: number) => void;
 };
 
@@ -36,12 +53,13 @@ function toClientBook(book: BookRecommendation): ClientBook {
     catalogUrl: book.catalogUrl,
     requestUrl: book.requestUrl || book.catalogUrl,
     source: book.source,
+    sourceType: book.sourceType,
     matchScore: book.matchScore,
     availabilityNote: book.availabilityNote,
     rating: book.rating,
     ratingAverage: book.ratingAverage,
     ratingCount: book.ratingCount,
-    reviewSignals: book.reviewSignals?.slice(0, 3),
+    reviewSignals: book.reviewSignals?.slice(0, 1),
     metadata: {
       format: book.metadata.format,
       audience: book.metadata.audience,
@@ -49,7 +67,7 @@ function toClientBook(book: BookRecommendation): ClientBook {
       publicationYear: book.metadata.publicationYear,
       pickupBranch: book.metadata.pickupBranch,
       pageCount: book.metadata.pageCount,
-      genreTags: book.metadata.genreTags?.slice(0, 5),
+      genreTags: book.metadata.genreTags?.slice(0, 3),
     },
   };
 }
@@ -103,49 +121,101 @@ function readSavedBooks() {
   );
 }
 
-function LoadingBookCard() {
-  return (
-    <article className="flex h-full flex-col overflow-hidden rounded-lg border border-[#d8ccb9] bg-white p-5 shadow-sm">
-      <div className="grid gap-5 sm:grid-cols-[132px_1fr]">
-        <div className="min-h-52 animate-pulse rounded-md bg-[#e4dacb]" />
-        <div>
-          <div className="mb-3 flex gap-2">
-            <div className="h-7 w-20 animate-pulse rounded-md bg-[#cbd8bc]" />
-            <div className="h-7 w-16 animate-pulse rounded-md bg-[#dce9f5]" />
-          </div>
-          <div className="h-7 w-4/5 animate-pulse rounded-md bg-[#e4dacb]" />
-          <div className="mt-3 h-4 w-2/3 animate-pulse rounded-md bg-[#eee7db]" />
-          <div className="mt-5 space-y-2">
-            <div className="h-4 animate-pulse rounded-md bg-[#eee7db]" />
-            <div className="h-4 w-5/6 animate-pulse rounded-md bg-[#eee7db]" />
-          </div>
-        </div>
-      </div>
-      <div className="mt-6 space-y-3">
-        <div className="h-4 animate-pulse rounded-md bg-[#eee7db]" />
-        <div className="h-4 animate-pulse rounded-md bg-[#eee7db]" />
-        <div className="h-4 w-3/4 animate-pulse rounded-md bg-[#eee7db]" />
-      </div>
-    </article>
-  );
+function getBookGenre(book: ClientBook) {
+  return book.metadata.genreTags?.[0] || "Uncategorized";
 }
 
-export function SacReadsApp({
-  initialBooks,
-  onRecommendationsLoaded,
-  onSavedCountChange,
-}: SacReadsAppProps) {
-  const initialClientBooks = useMemo(
-    () => initialBooks.slice(0, maxRecommendations).map((book) => toClientBook(book)),
-    [initialBooks],
-  );
-  const [recommendedBooks, setRecommendedBooks] = useState<ClientBook[]>(initialClientBooks);
+function parsePublicationYear(book: ClientBook) {
+  const year = Number(book.metadata.publicationYear);
+  return Number.isFinite(year) ? year : null;
+}
+
+function makeOptions(books: ClientBook[], values: string[], getValue: (book: ClientBook) => string): FilterOption[] {
+  const counts = new Map<string, number>();
+
+  for (const book of books) {
+    const value = getValue(book);
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  return values
+    .map((label) => ({ label, count: counts.get(label) ?? 0 }))
+    .filter((option) => option.count > 0);
+}
+
+function matchesFilters(book: ClientBook, filters: BrowseFilters) {
+  if (!filters.genre) {
+    return false;
+  }
+
+  if (getBookGenre(book) !== filters.genre) {
+    return false;
+  }
+
+  if (filters.format && book.metadata.format !== filters.format) {
+    return false;
+  }
+
+  if (filters.language && book.metadata.language !== filters.language) {
+    return false;
+  }
+
+  if (filters.audience && book.metadata.audience !== filters.audience) {
+    return false;
+  }
+
+  const year = parsePublicationYear(book);
+  const yearFrom = filters.yearFrom ? Number(filters.yearFrom) : null;
+  const yearTo = filters.yearTo ? Number(filters.yearTo) : null;
+
+  if (yearFrom && (!year || year < yearFrom)) {
+    return false;
+  }
+
+  if (yearTo && (!year || year > yearTo)) {
+    return false;
+  }
+
+  return true;
+}
+
+function sortBooks(books: ClientBook[], sort: BrowseFilters["sort"]) {
+  const nextBooks = [...books];
+
+  return nextBooks.sort((left, right) => {
+    if (sort === "Highest Goodreads rating") {
+      const leftRating = left.ratingAverage ?? -1;
+      const rightRating = right.ratingAverage ?? -1;
+      return rightRating - leftRating || left.title.localeCompare(right.title);
+    }
+
+    if (sort === "Most Goodreads reviews") {
+      const leftCount = left.ratingCount ?? -1;
+      const rightCount = right.ratingCount ?? -1;
+      return rightCount - leftCount || left.title.localeCompare(right.title);
+    }
+
+    if (sort === "Newest") {
+      const leftYear = parsePublicationYear(left) ?? -1;
+      const rightYear = parsePublicationYear(right) ?? -1;
+      return rightYear - leftYear || left.title.localeCompare(right.title);
+    }
+
+    if (sort === "Oldest") {
+      const leftYear = parsePublicationYear(left) ?? Number.MAX_SAFE_INTEGER;
+      const rightYear = parsePublicationYear(right) ?? Number.MAX_SAFE_INTEGER;
+      return leftYear - rightYear || left.title.localeCompare(right.title);
+    }
+
+    return left.title.localeCompare(right.title);
+  });
+}
+
+export function SacReadsApp({ onSavedCountChange }: SacReadsAppProps) {
+  const allBooks = useMemo(() => sacLibraryBooks.map((book) => toClientBook(book)), []);
+  const [filters, setFilters] = useState<BrowseFilters>(defaultFilters);
+  const [visibleRecommendations, setVisibleRecommendations] = useState(initialVisibleRecommendations);
   const [savedBooks, setSavedBooks] = useState<SavedBook[]>(readSavedBooks);
-  const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState("Starter recommendations are ready with Sac Library hold links.");
-  const [catalogUrl, setCatalogUrl] = useState("https://catalog.saclibrary.org/");
-  const [errorMessage, setErrorMessage] = useState("");
-  const activeRequest = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -165,13 +235,23 @@ export function SacReadsApp({
     onSavedCountChange?.(savedBooks.length);
   }, [onSavedCountChange, savedBooks.length]);
 
-  useEffect(() => {
-    return () => {
-      activeRequest.current?.abort();
-    };
-  }, []);
-
+  const filterOptions = useMemo(
+    () => ({
+      genres: makeOptions(allBooks, genreOrder, getBookGenre),
+      formats: makeOptions(allBooks, formatOrder, (book) => book.metadata.format),
+      languages: makeOptions(allBooks, languageOrder, (book) => book.metadata.language),
+      audiences: makeOptions(allBooks, audienceOrder, (book) => book.metadata.audience),
+    }),
+    [allBooks],
+  );
+  const filteredBooks = useMemo(
+    () => sortBooks(allBooks.filter((book) => matchesFilters(book, filters)), filters.sort),
+    [allBooks, filters],
+  );
+  const visibleBooks = filteredBooks.slice(0, visibleRecommendations);
   const savedIds = useMemo(() => new Set(savedBooks.map((book) => book.id)), [savedBooks]);
+  const hasSelectedGenre = Boolean(filters.genre);
+  const resultCount = hasSelectedGenre ? filteredBooks.length : allBooks.length;
 
   function persistSavedBooks(nextBooks: SavedBook[]) {
     setSavedBooks(nextBooks);
@@ -190,104 +270,78 @@ export function SacReadsApp({
     persistSavedBooks(savedBooks.filter((book) => book.id !== id));
   }
 
-  async function handleSearch(filters: CatalogSearchFilters) {
-    activeRequest.current?.abort();
+  function handleFiltersChange(nextFilters: BrowseFilters) {
+    setFilters(nextFilters);
+    setVisibleRecommendations(initialVisibleRecommendations);
+  }
 
-    const controller = new AbortController();
-    activeRequest.current = controller;
-
-    setIsLoading(true);
-    setErrorMessage("");
-    setStatus("Searching Sacramento Public Library physical books...");
-    setRecommendedBooks([]);
-    document.getElementById("recommendations")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-
-    try {
-      const response = await fetch("/api/recommend", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(filters),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error("Recommendation request failed");
-      }
-
-      const data = (await response.json()) as RecommendationsResponse;
-      const nextBooks = data.books.slice(0, maxRecommendations).map((book) => toClientBook(book));
-
-      setRecommendedBooks(nextBooks);
-      onRecommendationsLoaded?.(nextBooks.length > 0 ? nextBooks.slice(0, 3) : initialClientBooks.slice(0, 3));
-      setStatus(
-        nextBooks.length > 0
-          ? data.message
-          : "No matching recommendations came back yet. Try a broader mood, audience, or genre.",
-      );
-      setCatalogUrl(data.catalogUrl || "https://catalog.saclibrary.org/");
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return;
-      }
-
-      setRecommendedBooks(initialClientBooks);
-      onRecommendationsLoaded?.(initialClientBooks.slice(0, 3));
-      setErrorMessage("The recommendation search could not be reached. Showing starter recommendations.");
-      setStatus("The catalog search could not be reached, so SacReads kept the starter recommendations visible.");
-    } finally {
-      if (activeRequest.current === controller) {
-        setIsLoading(false);
-        activeRequest.current = null;
-      }
-    }
+  function handleResetFilters() {
+    setFilters(defaultFilters);
+    setVisibleRecommendations(initialVisibleRecommendations);
   }
 
   return (
     <>
-      <SearchForm isLoading={isLoading} onSearch={handleSearch} />
+      <SearchForm
+        filters={filters}
+        onChange={handleFiltersChange}
+        onReset={handleResetFilters}
+        options={filterOptions}
+        resultCount={resultCount}
+      />
 
-      <section aria-busy={isLoading} className="border-b border-[#ded3c2] bg-[#f8f5ee]" id="recommendations">
+      <section className="border-b border-[#ded3c2] bg-[#f8f5ee]" id="recommendations">
         <div className="mx-auto max-w-6xl px-6 py-16">
           <div className="mb-8 grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
             <div className="max-w-3xl">
-              <p className="mb-3 text-sm font-bold uppercase text-[#8b4c35]">Local picks</p>
-              <h2 className="text-3xl font-bold text-[#20231c] sm:text-4xl">Recommended holdable books.</h2>
+              <p className="mb-3 text-sm font-bold uppercase text-[#8b4c35]">Catalog results</p>
+              <h2 className="text-3xl font-bold text-[#20231c] sm:text-4xl">Holdable SPL books.</h2>
               <p className="mt-4 text-base leading-7 text-[#555d50]" role="status">
-                {status}
+                {hasSelectedGenre
+                  ? `${filteredBooks.length.toLocaleString()} ${filters.genre} books match these filters.`
+                  : "Choose a genre to show matching Sacramento Public Library catalog books."}
               </p>
-              {errorMessage ? (
-                <p className="mt-3 rounded-md border border-[#d9a38d] bg-[#fff4ee] px-4 py-3 text-sm font-semibold text-[#8b4c35]">
-                  {errorMessage}
-                </p>
-              ) : null}
-              <a
-                className="mt-4 inline-flex rounded-md border border-[#315c8c] bg-white px-4 py-2 text-sm font-bold text-[#315c8c] transition hover:bg-[#eef4fb]"
-                href={catalogUrl}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                Open this search in SPL
-              </a>
             </div>
             <SavedBooks books={savedBooks} onRemove={removeSavedBook} />
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-3">
-            {isLoading ? [0, 1, 2].map((item) => <LoadingBookCard key={item} />) : null}
-            {!isLoading && recommendedBooks.length === 0 ? (
-              <div className="rounded-lg border border-[#d8ccb9] bg-white p-5 text-sm leading-6 text-[#555d50] lg:col-span-3">
-                No recommendations loaded yet. Try broadening your filters and search again.
+          {!hasSelectedGenre ? (
+            <div className="rounded-lg border border-[#d8ccb9] bg-white p-5 text-sm leading-6 text-[#555d50]">
+              Genre cards are ready above. Results stay hidden until a genre is selected.
+            </div>
+          ) : null}
+
+          {hasSelectedGenre && filteredBooks.length === 0 ? (
+            <div className="rounded-lg border border-[#d8ccb9] bg-white p-5 text-sm leading-6 text-[#555d50]">
+              No books match this combination yet. Try a broader year range or remove one filter.
+            </div>
+          ) : null}
+
+          {hasSelectedGenre && filteredBooks.length > 0 ? (
+            <>
+              <div className="grid gap-5 lg:grid-cols-3">
+                {visibleBooks.map((book) => (
+                  <BookCard book={book} isSaved={savedIds.has(book.id)} key={book.id} onSave={toggleSavedBook} />
+                ))}
               </div>
-            ) : null}
-            {!isLoading && recommendedBooks.map((book) => (
-              <BookCard book={book} isSaved={savedIds.has(book.id)} key={book.id} onSave={toggleSavedBook} />
-            ))}
-          </div>
+
+              {filteredBooks.length > visibleRecommendations ? (
+                <div className="mt-8 flex justify-center">
+                  <button
+                    className="rounded-md border border-[#315c8c] bg-white px-5 py-3 text-sm font-bold text-[#315c8c] transition hover:bg-[#eef4fb] focus:outline-none focus:ring-4 focus:ring-[#315c8c]/15"
+                    onClick={() =>
+                      setVisibleRecommendations((current) =>
+                        Math.min(current + initialVisibleRecommendations, filteredBooks.length),
+                      )
+                    }
+                    type="button"
+                  >
+                    Show more
+                  </button>
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </div>
       </section>
     </>

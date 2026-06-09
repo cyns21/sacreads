@@ -26,7 +26,7 @@ export function Header({ savedCount }: HeaderProps) {
               href={item.href}
               key={item.href}
             >
-              {item.label === "Saved" && typeof savedCount === "number" ? `Saved ${savedCount}` : item.label}
+              {item.label === "Saved" && savedCount ? `Saved ${savedCount}` : item.label}
             </a>
           ))}
         </nav>

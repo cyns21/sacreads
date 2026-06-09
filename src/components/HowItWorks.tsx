@@ -1,15 +1,15 @@
 const steps = [
   {
-    title: "Tell SacReads what you want to read",
-    copy: "Share a mood, topic, age range, favorite author, or reading goal.",
+    title: "Choose a genre",
+    copy: "Start with Mystery, Romance, Fantasy, or another local SPL catalog category.",
   },
   {
-    title: "SacReads searches with your library filters",
-    copy: "A lightweight recommendation ranker scores live catalog results when available, then fills gaps from a curated physical-book pool.",
+    title: "Refine the local catalog",
+    copy: "Filter by format, language, audience, and publication year without sending a new web request.",
   },
   {
-    title: "Pick a recommendation and request it through Sacramento Public Library",
-    copy: "Review the fit, compare Goodreads and Google Books source links, then open the SPL catalog to place a hold.",
+    title: "Check availability at SPL",
+    copy: "Review Goodreads metadata when it has been added, then open the SPL catalog record in a new tab.",
   },
 ];
 

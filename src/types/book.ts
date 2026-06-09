@@ -3,7 +3,7 @@ export type BookReviewSignal = {
   rating?: string;
   count?: string;
   note: string;
-  url: string;
+  url?: string;
 };
 
 export type BookRecommendation = {
@@ -21,6 +21,7 @@ export type BookRecommendation = {
   catalogUrl: string;
   requestUrl: string;
   source: "spl-catalog" | "curated-catalog" | "seed-data";
+  sourceType?: "spl-reading-list" | "spl-catalog-browser" | "open-library";
   matchScore?: number;
   availabilityNote?: string;
   keywords?: string[];
@@ -52,6 +53,7 @@ export type ClientBook = Pick<
   | "catalogUrl"
   | "requestUrl"
   | "source"
+  | "sourceType"
   | "matchScore"
   | "availabilityNote"
   | "rating"
@@ -63,6 +65,28 @@ export type ClientBook = Pick<
 
 export type SavedBook = Pick<ClientBook, "id" | "title" | "author" | "coverImageUrl" | "requestUrl"> & {
   publicationYear: string;
+};
+
+export type BrowseSort =
+  | "Highest Goodreads rating"
+  | "Most Goodreads reviews"
+  | "Newest"
+  | "Oldest"
+  | "Title A-Z";
+
+export type BrowseFilters = {
+  genre: string;
+  format: string;
+  language: string;
+  audience: string;
+  yearFrom: string;
+  yearTo: string;
+  sort: BrowseSort;
+};
+
+export type FilterOption = {
+  label: string;
+  count: number;
 };
 
 export type CatalogSearchFilters = {
@@ -79,4 +103,28 @@ export type CatalogSearchFilters = {
   authorContains: string;
   minimumRating: string;
   maxPages: string;
+};
+
+export type LocalBookRecord = {
+  id: string;
+  title: string;
+  author: string;
+  genre: string;
+  genres?: string[];
+  audience: string;
+  format: string;
+  language: string;
+  publicationYear: number | null;
+  description: string;
+  coverUrl: string;
+  goodreadsRating: number | null;
+  goodreadsReviewCount: number | null;
+  goodreadsUrl: string;
+  splCatalogUrl: string;
+  splSearchUrl?: string;
+  sourceListName: string;
+  sourcePageUrl: string;
+  sourceSeed?: string;
+  sourceSeeds?: string[];
+  sourceType?: "spl-reading-list" | "spl-catalog-browser" | "open-library";
 };

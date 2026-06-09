@@ -1,26 +1,6 @@
-import curatedSplBooks from "@/data/curatedSplBooks.json";
-import {
-  buildGoodreadsSearchUrl,
-  buildGoogleBooksSearchUrl,
-  buildSplCatalogSearchUrl,
-} from "@/lib/catalogUrls";
-import type { BookRecommendation, BookReviewSignal } from "@/types/book";
-
-type CuratedSplBook = {
-  id: string;
-  title: string;
-  author: string;
-  isbn: string;
-  format: string;
-  audience: string;
-  language: string;
-  publicationYear: string;
-  pageCount: number;
-  ratingAverage: number;
-  ratingCount: number;
-  description: string;
-  keywords: string[];
-};
+import localBooks from "@/data/books.json";
+import { buildSplCatalogSearchUrl } from "@/lib/catalogUrls";
+import type { BookRecommendation, BookReviewSignal, LocalBookRecord } from "@/types/book";
 
 function formatCount(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -33,62 +13,96 @@ function formatRating(value: number) {
   return `${value.toFixed(1)}/5`;
 }
 
-function buildReviewSignals(book: CuratedSplBook): BookReviewSignal[] {
+function hasRating(book: LocalBookRecord) {
+  return typeof book.goodreadsRating === "number" && Number.isFinite(book.goodreadsRating);
+}
+
+function hasReviewCount(book: LocalBookRecord) {
+  return typeof book.goodreadsReviewCount === "number" && Number.isFinite(book.goodreadsReviewCount);
+}
+
+function buildReviewSignals(book: LocalBookRecord): BookReviewSignal[] {
+  if (!hasRating(book)) {
+    return [
+      {
+        source: "Goodreads",
+        note: "Goodreads info not added yet.",
+        url: book.goodreadsUrl || undefined,
+      },
+    ];
+  }
+
   return [
     {
       source: "Goodreads",
-      rating: "Reader reviews",
-      note: "Goodreads review links are provided because Goodreads no longer offers a public reviews API for new integrations.",
-      url: buildGoodreadsSearchUrl(book),
-    },
-    {
-      source: "Google Books",
-      rating: formatRating(book.ratingAverage),
-      count: `${formatCount(book.ratingCount)} ratings`,
-      note: "Seed rating shown until a cached Google Books/Open Library lookup updates this title.",
-      url: buildGoogleBooksSearchUrl(book),
+      rating: hasRating(book) ? formatRating(book.goodreadsRating as number) : undefined,
+      count: hasReviewCount(book) ? `${formatCount(book.goodreadsReviewCount as number)} reviews` : undefined,
+      note: "Manually added Goodreads metadata.",
+      url: book.goodreadsUrl || undefined,
     },
   ];
 }
 
-function makeCatalogBook(book: CuratedSplBook): BookRecommendation {
-  const catalogUrl = buildSplCatalogSearchUrl({
-    query: book.title,
-    format: book.format,
-  });
+function getCatalogUrl(book: LocalBookRecord) {
+  return (
+    book.splCatalogUrl ||
+    book.splSearchUrl ||
+    buildSplCatalogSearchUrl({
+      query: `${book.title} ${book.author}`,
+      format: book.format || "Book",
+    })
+  );
+}
+
+function makeCatalogBook(book: LocalBookRecord): BookRecommendation {
+  const catalogUrl = getCatalogUrl(book);
+  const isBrowserCatalogResult = book.sourceType === "spl-catalog-browser";
+  const genreTags =
+    book.genres?.length
+      ? book.genres.filter((genre) => genre !== "Uncategorized")
+      : book.genre && book.genre !== "Uncategorized"
+        ? [book.genre]
+        : [];
+  const keywords = [
+    book.genre,
+    ...(book.genres ?? []),
+    book.audience,
+    book.format,
+    book.language,
+    book.sourceListName,
+    ...(book.sourceSeeds ?? []),
+  ].filter(Boolean);
 
   return {
     id: book.id,
     title: book.title,
     author: book.author,
-    isbn: book.isbn,
-    rating: formatRating(book.ratingAverage),
-    ratingAverage: book.ratingAverage,
-    ratingCount: book.ratingCount,
-    googleUsers: `${formatCount(book.ratingCount)} ratings`,
-    description: book.description,
-    whyThisFits: `A physical Sacramento Public Library candidate with ${book.keywords
-      .slice(0, 3)
-      .join(", ")} appeal.`,
-    coverImageUrl: `https://covers.openlibrary.org/b/isbn/${book.isbn}-L.jpg`,
+    rating: hasRating(book) ? formatRating(book.goodreadsRating as number) : undefined,
+    ratingAverage: hasRating(book) ? book.goodreadsRating ?? undefined : undefined,
+    ratingCount: hasReviewCount(book) ? book.goodreadsReviewCount ?? undefined : undefined,
+    description: book.description || "Description not added yet.",
+    whyThisFits: isBrowserCatalogResult
+      ? `Found in a public Sacramento Public Library catalog search for ${book.sourceSeed || "this topic"}.`
+      : `A Sacramento Public Library reading-list pick from ${book.sourceListName || "a public SPL list"}.`,
+    coverImageUrl: book.coverUrl || undefined,
     catalogUrl,
     requestUrl: catalogUrl,
     source: "curated-catalog",
-    availabilityNote: "Holdable physical-book search in the Sacramento Public Library catalog",
-    keywords: book.keywords,
+    sourceType: book.sourceType ?? "spl-catalog-browser",
+    availabilityNote: "Check SPL catalog for current locations, copies, and request options.",
+    keywords,
     reviewSignals: buildReviewSignals(book),
     metadata: {
-      format: book.format,
-      audience: book.audience,
-      language: book.language,
-      publicationYear: book.publicationYear,
-      pageCount: book.pageCount,
-      genreTags: book.keywords.slice(0, 5),
+      format: book.format || "Book",
+      audience: book.audience || "Adult / General",
+      language: book.language || "English",
+      publicationYear: book.publicationYear ? String(book.publicationYear) : "Not listed",
+      genreTags,
     },
   };
 }
 
-export const sacLibraryBooks: BookRecommendation[] = (curatedSplBooks as CuratedSplBook[]).map(makeCatalogBook);
+export const sacLibraryBooks: BookRecommendation[] = (localBooks as LocalBookRecord[]).map(makeCatalogBook);
 
 export function getRandomCuratedBooks(count = 3) {
   const books = [...sacLibraryBooks];

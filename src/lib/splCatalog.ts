@@ -29,8 +29,14 @@ type AspenSearchResponse = {
   error?: string;
 };
 
-const recommendationCount = 10;
+const recommendationCount = 36;
 const enrichmentTimeoutMs = 1200;
+const genreAliases = new Map([
+  ["historical fiction", "Historical Fiction"],
+  ["science fiction", "Science Fiction"],
+  ["picture book", "Children's / Picture Books"],
+  ["picture books", "Children's / Picture Books"],
+]);
 
 function getQuery(filters: CatalogSearchFilters) {
   const pieces = [
@@ -97,6 +103,19 @@ function getMaxPages(filters: CatalogSearchFilters) {
 
   const pages = Number.parseInt(match[0], 10);
   return Number.isNaN(pages) ? undefined : pages;
+}
+
+function normalizeGenre(value: string) {
+  return genreAliases.get(value.toLowerCase()) ?? value;
+}
+
+function filterHasGenre(book: BookRecommendation, genre: string) {
+  const expected = normalizeGenre(genre).toLowerCase();
+  const candidates = [...(book.metadata.genreTags ?? []), ...(book.keywords ?? [])].map((value) =>
+    normalizeGenre(value).toLowerCase(),
+  );
+
+  return candidates.includes(expected);
 }
 
 function matchesExtendedFilters(book: BookRecommendation, filters: CatalogSearchFilters) {
@@ -263,15 +282,20 @@ function mergeRecommendations(books: BookRecommendation[]) {
   return merged;
 }
 
-function buildCuratedRecommendations(filters: CatalogSearchFilters) {
+function buildCuratedRecommendations(
+  filters: CatalogSearchFilters,
+  options: { ignoreGenre?: boolean; ignoreAudience?: boolean } = {},
+) {
   const branchLinked = sacLibraryBooks.map((book) => withBranchHoldLink(book, filters));
   const filtered = branchLinked.filter((book) => {
     const formatMatches =
       filters.format !== "Picture Book" || book.metadata.format === "Picture Book";
     const audienceMatches =
-      filters.audience === "General" || book.metadata.audience === filters.audience;
+      options.ignoreAudience || filters.audience === "General" || book.metadata.audience === filters.audience;
     const languageMatches =
       filters.language === "Any language" || book.metadata.language === filters.language;
+    const genreMatches =
+      options.ignoreGenre || filters.genre === "Any genre" || filterHasGenre(book, filters.genre);
     const bookTypeMatches =
       filters.bookType === "Any" ||
       book.keywords?.some((keyword) => keyword.toLowerCase() === filters.bookType.toLowerCase());
@@ -280,12 +304,47 @@ function buildCuratedRecommendations(filters: CatalogSearchFilters) {
       formatMatches &&
       audienceMatches &&
       languageMatches &&
+      genreMatches &&
       bookTypeMatches &&
       matchesExtendedFilters(book, filters)
     );
   });
 
   return rankRecommendations(filtered, filters);
+}
+
+function getFallbackRecommendations(filters: CatalogSearchFilters) {
+  const hasLanguage = filters.language !== "Any language";
+  const hasGenre = filters.genre !== "Any genre";
+  const hasAudience = filters.audience !== "General";
+
+  if (hasLanguage && hasGenre) {
+    const books = buildCuratedRecommendations(filters, { ignoreGenre: true }).slice(0, recommendationCount);
+
+    if (books.length > 0) {
+      return {
+        books,
+        message: `Closest matches: No exact matches found for this combination. Try removing one filter, or browse all ${filters.language} results.`,
+      };
+    }
+  }
+
+  if (hasLanguage && hasAudience) {
+    const books = buildCuratedRecommendations(filters, { ignoreAudience: true }).slice(0, recommendationCount);
+
+    if (books.length > 0) {
+      return {
+        books,
+        message: `Closest matches: No exact matches found for this combination. Try removing one filter, or browse all ${filters.language} results.`,
+      };
+    }
+  }
+
+  return {
+    books: [],
+    message:
+      "No exact matches found for this combination. Try removing one filter, or browse all selected genre/language results.",
+  };
 }
 
 async function getLiveCatalogBooks(filters: CatalogSearchFilters) {
@@ -352,12 +411,20 @@ export async function getSacReadsRecommendations(filters: CatalogSearchFilters) 
   }
 
   const curatedBooks = buildCuratedRecommendations(filters);
-  const rankedBooks = rankRecommendations(
+  let rankedBooks: BookRecommendation[] = rankRecommendations(
     mergeRecommendations([...liveBooks, ...curatedBooks]).map((book) => withBranchHoldLink(book, filters)),
     filters,
   )
     .filter((book) => matchesExtendedFilters(book, filters))
     .slice(0, recommendationCount);
+  let fallbackMessage = "";
+
+  if (rankedBooks.length === 0) {
+    const fallback = getFallbackRecommendations(filters);
+    rankedBooks = fallback.books.map((book) => withBranchHoldLink(book, filters));
+    fallbackMessage = fallback.message;
+  }
+
   const shouldEnrich = rankedBooks.length > 0;
   const enrichedBooks = shouldEnrich
     ? await withTimeout(enrichBookRecommendations(rankedBooks), rankedBooks, enrichmentTimeoutMs)
@@ -367,9 +434,11 @@ export async function getSacReadsRecommendations(filters: CatalogSearchFilters) 
   return {
     books: enrichedBooks,
     mode: usedLiveCatalog ? ("spl-catalog" as const) : ("curated-catalog" as const),
-    message: usedLiveCatalog
-      ? `Ranked live Sacramento Public Library physical-book results for ${filters.pickupBranch}.`
-      : `Ranked hold-ready Sacramento Public Library catalog searches for ${filters.pickupBranch}.`,
+    message:
+      fallbackMessage ||
+      (usedLiveCatalog
+        ? `Ranked live Sacramento Public Library physical-book results for ${filters.pickupBranch}.`
+        : `Ranked hold-ready Sacramento Public Library catalog searches for ${filters.pickupBranch}.`),
     catalogUrl,
     error: liveCatalogError,
   };

@@ -6,7 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "scrape:spl": "node scripts/scrape-spl-books.mjs",
+    "scrape:spl:browser": "node scripts/scrape-spl-playwright.mjs",
+    "import:spl:csv": "node scripts/import-spl-csv.mjs --balanced",
+    "import:spl:csv:reset": "node scripts/import-spl-csv.mjs --reset --balanced",
+    "import:spl:csv:balanced": "node scripts/import-spl-csv.mjs --reset --balanced --max-rows-per-file=150 --max-books=5000",
+    "import:spl:csv:dry": "node scripts/import-spl-csv.mjs --dry-run --balanced --max-files=3",
+    "import:goodreads": "node scripts/import-goodreads-metadata.mjs",
+    "export:goodreads:missing": "node scripts/export-goodreads-missing.mjs",
+    "report:books": "node scripts/report-missing-book-metadata.mjs",
+    "books:missing": "node scripts/report-missing-book-metadata.mjs"
   },
   "engines": {
     "node": ">=20.9.0 <25"
@@ -24,6 +34,7 @@
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
+    "playwright": "^1.60.0",
     "postcss": "8.5.14",
     "tailwindcss": "4.3.0",
     "typescript": "6.0.3"

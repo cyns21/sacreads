@@ -1,34 +1,44 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import {
-  audiences,
-  bookTypes,
-  branches,
-  defaultFilters,
-  formats,
-  genres,
-  languages,
-  maxPageOptions,
-  minimumRatings,
-  moods,
-} from "@/data/searchOptions";
-import type { CatalogSearchFilters } from "@/types/book";
+import type { BrowseFilters, BrowseSort, FilterOption } from "@/types/book";
+
+type FilterOptions = {
+  genres: FilterOption[];
+  formats: FilterOption[];
+  languages: FilterOption[];
+  audiences: FilterOption[];
+};
 
 type SearchFormProps = {
-  isLoading: boolean;
-  onSearch: (filters: CatalogSearchFilters) => Promise<void> | void;
+  filters: BrowseFilters;
+  options: FilterOptions;
+  resultCount: number;
+  onChange: (filters: BrowseFilters) => void;
+  onReset: () => void;
 };
 
 type SelectFieldProps = {
   label: string;
-  name: keyof CatalogSearchFilters;
-  options: string[];
+  name: keyof BrowseFilters;
+  options: FilterOption[];
   value: string;
-  onChange: (name: keyof CatalogSearchFilters, value: string) => void;
+  allLabel: string;
+  onChange: (name: keyof BrowseFilters, value: string) => void;
 };
 
-function SelectField({ label, name, options, value, onChange }: SelectFieldProps) {
+const sortOptions: BrowseSort[] = [
+  "Highest Goodreads rating",
+  "Most Goodreads reviews",
+  "Newest",
+  "Oldest",
+  "Title A-Z",
+];
+
+function optionText(option: FilterOption) {
+  return option.count < 5 ? `${option.label} (${option.count})` : option.label;
+}
+
+function SelectField({ label, name, options, value, allLabel, onChange }: SelectFieldProps) {
   return (
     <label className="flex flex-col gap-2 text-sm font-semibold text-[#34392f]" htmlFor={name}>
       {label}
@@ -39,8 +49,11 @@ function SelectField({ label, name, options, value, onChange }: SelectFieldProps
         onChange={(event) => onChange(name, event.target.value)}
         value={value}
       >
+        <option value="">{allLabel}</option>
         {options.map((option) => (
-          <option key={option}>{option}</option>
+          <option key={option.label} value={option.label}>
+            {optionText(option)}
+          </option>
         ))}
       </select>
     </label>
@@ -49,10 +62,10 @@ function SelectField({ label, name, options, value, onChange }: SelectFieldProps
 
 type YearFieldProps = {
   label: string;
-  name: keyof Pick<CatalogSearchFilters, "yearFrom" | "yearTo">;
+  name: keyof Pick<BrowseFilters, "yearFrom" | "yearTo">;
   placeholder: string;
   value: string;
-  onChange: (name: keyof CatalogSearchFilters, value: string) => void;
+  onChange: (name: keyof BrowseFilters, value: string) => void;
 };
 
 function YearField({ label, name, placeholder, value, onChange }: YearFieldProps) {
@@ -73,163 +86,122 @@ function YearField({ label, name, placeholder, value, onChange }: YearFieldProps
   );
 }
 
-type TextFieldProps = {
-  label: string;
-  name: keyof Pick<CatalogSearchFilters, "authorContains">;
-  placeholder: string;
-  value: string;
-  onChange: (name: keyof CatalogSearchFilters, value: string) => void;
-};
-
-function TextField({ label, name, placeholder, value, onChange }: TextFieldProps) {
-  return (
-    <label className="flex flex-col gap-2 text-sm font-semibold text-[#34392f]" htmlFor={name}>
-      {label}
-      <input
-        className="h-12 rounded-md border border-[#cfc4b3] bg-white px-3 text-sm font-medium text-[#20231c] outline-none transition placeholder:text-[#8a8174] focus:border-[#315c8c] focus:ring-4 focus:ring-[#315c8c]/15"
-        id={name}
-        name={name}
-        onChange={(event) => onChange(name, event.target.value)}
-        placeholder={placeholder}
-        type="text"
-        value={value}
-      />
-    </label>
-  );
-}
-
-export function SearchForm({ isLoading, onSearch }: SearchFormProps) {
-  const [filters, setFilters] = useState<CatalogSearchFilters>(defaultFilters);
-
-  function updateFilter(name: keyof CatalogSearchFilters, value: string) {
-    setFilters((current) => ({
-      ...current,
+export function SearchForm({ filters, options, resultCount, onChange, onReset }: SearchFormProps) {
+  function updateFilter(name: keyof BrowseFilters, value: string) {
+    onChange({
+      ...filters,
       [name]: value,
-    }));
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onSearch(filters);
+    } as BrowseFilters);
   }
 
   return (
     <section className="border-b border-[#ded3c2] bg-[#fffaf1]" id="find-books">
-      <div className="mx-auto max-w-6xl px-6 py-16">
-        <div className="mb-8 max-w-3xl">
-          <p className="mb-3 text-sm font-bold uppercase text-[#8b4c35]">Recommendation request</p>
-          <h2 className="text-3xl font-bold text-[#20231c] sm:text-4xl">Describe the shelf you want.</h2>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-[#555d50]">
-            Branch-aware filters keep every recommendation grounded in a physical hold request.
-          </p>
+      <div className="mx-auto max-w-6xl px-6 py-14">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="max-w-3xl">
+            <p className="mb-3 text-sm font-bold uppercase text-[#8b4c35]">Browse by genre</p>
+            <h2 className="text-3xl font-bold text-[#20231c] sm:text-4xl">Sacramento Public Library catalog picks.</h2>
+          </div>
+          <div className="rounded-md border border-[#d8ccb9] bg-white px-4 py-3 text-sm font-bold text-[#214d45]">
+            {resultCount.toLocaleString()} results
+          </div>
         </div>
 
-        <form
-          className="rounded-lg border border-[#d8ccb9] bg-[#f8f5ee] p-4 shadow-sm sm:p-6"
-          onSubmit={handleSubmit}
-        >
-          <label className="flex flex-col gap-2 text-sm font-semibold text-[#34392f]" htmlFor="reading-request">
-            What do you want to read?
-            <textarea
-              className="min-h-40 resize-y rounded-md border border-[#cfc4b3] bg-white px-4 py-3 text-base leading-7 text-[#20231c] outline-none transition placeholder:text-[#8a8174] focus:border-[#315c8c] focus:ring-4 focus:ring-[#315c8c]/15"
-              id="reading-request"
-              name="reading-request"
-              onChange={(event) => updateFilter("query", event.target.value)}
-              placeholder="Tell us what you want to read..."
-              value={filters.query}
-            />
-          </label>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {options.genres.map((option) => {
+            const isSelected = filters.genre === option.label;
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <SelectField
-              label="Pickup branch"
-              name="pickupBranch"
-              onChange={updateFilter}
-              options={branches}
-              value={filters.pickupBranch}
-            />
-            <SelectField
-              label="Language"
-              name="language"
-              onChange={updateFilter}
-              options={languages}
-              value={filters.language}
-            />
-            <SelectField label="Format" name="format" onChange={updateFilter} options={formats} value={filters.format} />
-            <SelectField
-              label="Fiction or nonfiction"
-              name="bookType"
-              onChange={updateFilter}
-              options={bookTypes}
-              value={filters.bookType}
-            />
-            <SelectField
-              label="Audience"
-              name="audience"
-              onChange={updateFilter}
-              options={audiences}
-              value={filters.audience}
-            />
-            <SelectField label="Mood" name="mood" onChange={updateFilter} options={moods} value={filters.mood} />
-            <TextField
-              label="Author contains"
-              name="authorContains"
-              onChange={updateFilter}
-              placeholder="Agatha, Henry, Grann..."
-              value={filters.authorContains}
-            />
-            <SelectField
-              label="Minimum rating"
-              name="minimumRating"
-              onChange={updateFilter}
-              options={minimumRatings}
-              value={filters.minimumRating}
-            />
-            <SelectField
-              label="Length"
-              name="maxPages"
-              onChange={updateFilter}
-              options={maxPageOptions}
-              value={filters.maxPages}
-            />
-            <YearField
-              label="Publication year from"
-              name="yearFrom"
-              onChange={updateFilter}
-              placeholder="1990"
-              value={filters.yearFrom}
-            />
-            <YearField
-              label="Publication year to"
-              name="yearTo"
-              onChange={updateFilter}
-              placeholder="2026"
-              value={filters.yearTo}
-            />
-            <SelectField label="Genre" name="genre" onChange={updateFilter} options={genres} value={filters.genre} />
-          </div>
+            return (
+              <button
+                className={`rounded-lg border px-4 py-4 text-left transition focus:outline-none focus:ring-4 focus:ring-[#315c8c]/15 ${
+                  isSelected
+                    ? "border-[#214d45] bg-[#214d45] text-white"
+                    : "border-[#d8ccb9] bg-white text-[#20231c] hover:border-[#315c8c]"
+                }`}
+                key={option.label}
+                onClick={() => updateFilter("genre", isSelected ? "" : option.label)}
+                type="button"
+              >
+                <span className="block text-base font-bold">{option.label}</span>
+                <span className={`mt-2 block text-sm font-semibold ${isSelected ? "text-white/80" : "text-[#6a6257]"}`}>
+                  {option.count.toLocaleString()} books
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-          <div className="mt-6 flex justify-end">
-            <button
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#214d45] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#173f3a] focus:outline-none focus:ring-4 focus:ring-[#214d45]/20 disabled:cursor-wait disabled:bg-[#76877e] sm:w-auto"
-              disabled={isLoading}
-              type="submit"
+        <div className="mt-8 grid gap-4 rounded-lg border border-[#d8ccb9] bg-[#f8f5ee] p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-3">
+          <SelectField
+            allLabel="All genres"
+            label="Genre"
+            name="genre"
+            onChange={updateFilter}
+            options={options.genres}
+            value={filters.genre}
+          />
+          <SelectField
+            allLabel="All formats"
+            label="Format"
+            name="format"
+            onChange={updateFilter}
+            options={options.formats}
+            value={filters.format}
+          />
+          <SelectField
+            allLabel="All languages"
+            label="Language"
+            name="language"
+            onChange={updateFilter}
+            options={options.languages}
+            value={filters.language}
+          />
+          <SelectField
+            allLabel="All audiences"
+            label="Audience"
+            name="audience"
+            onChange={updateFilter}
+            options={options.audiences}
+            value={filters.audience}
+          />
+          <YearField
+            label="Publication year from"
+            name="yearFrom"
+            onChange={updateFilter}
+            placeholder="1990"
+            value={filters.yearFrom}
+          />
+          <YearField
+            label="Publication year to"
+            name="yearTo"
+            onChange={updateFilter}
+            placeholder="2026"
+            value={filters.yearTo}
+          />
+          <label className="flex flex-col gap-2 text-sm font-semibold text-[#34392f]" htmlFor="sort">
+            Sort
+            <select
+              className="h-12 rounded-md border border-[#cfc4b3] bg-white px-3 text-sm font-medium text-[#20231c] outline-none transition focus:border-[#315c8c] focus:ring-4 focus:ring-[#315c8c]/15"
+              id="sort"
+              name="sort"
+              onChange={(event) => updateFilter("sort", event.target.value)}
+              value={filters.sort}
             >
-              {isLoading ? (
-                <span
-                  aria-hidden="true"
-                  className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                />
-              ) : null}
-              {isLoading ? "Searching Sacramento Public Library..." : "Find books at Sacramento Public Library"}
+              {sortOptions.map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+          <div className="flex items-end">
+            <button
+              className="h-12 w-full rounded-md border border-[#315c8c] bg-white px-4 text-sm font-bold text-[#315c8c] transition hover:bg-[#eef4fb] focus:outline-none focus:ring-4 focus:ring-[#315c8c]/15"
+              onClick={onReset}
+              type="button"
+            >
+              Reset filters
             </button>
           </div>
-          {isLoading ? (
-            <p className="mt-4 text-sm font-semibold text-[#214d45]" role="status">
-              Loading book recommendations and hold links...
-            </p>
-          ) : null}
-        </form>
+        </div>
       </div>
     </section>
   );

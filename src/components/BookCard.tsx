@@ -43,25 +43,37 @@ function ReviewSignals({ signals }: { signals?: BookReviewSignal[] }) {
 
   return (
     <div className="mt-5 border-l-4 border-[#315c8c] bg-[#eef4fb] px-4 py-3">
-      <p className="text-xs font-bold uppercase text-[#315c8c]">Review sources</p>
+      <p className="text-xs font-bold uppercase text-[#315c8c]">Goodreads</p>
       <div className="mt-3 grid gap-2">
-        {signals.map((signal) => (
-          <a
-            className="block rounded-md bg-white px-3 py-2 text-sm transition hover:bg-[#f7fbff] focus:outline-none focus:ring-4 focus:ring-[#315c8c]/15"
-            href={signal.url}
-            key={signal.source}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            <span className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="font-bold text-[#20231c]">{signal.source}</span>
-              <span className="text-xs font-bold uppercase text-[#315c8c]">
-                {[signal.rating, signal.count].filter(Boolean).join(" · ")}
+        {signals.map((signal) => {
+          const content = (
+            <>
+              <span className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="font-bold text-[#20231c]">{signal.source}</span>
+                <span className="text-xs font-bold uppercase text-[#315c8c]">
+                  {[signal.rating, signal.count].filter(Boolean).join(" · ")}
+                </span>
               </span>
-            </span>
-            <span className="mt-1 block leading-6 text-[#4e5547]">{signal.note}</span>
-          </a>
-        ))}
+              <span className="mt-1 block leading-6 text-[#4e5547]">{signal.note}</span>
+            </>
+          );
+
+          return signal.url ? (
+            <a
+              className="block rounded-md bg-white px-3 py-2 text-sm transition hover:bg-[#f7fbff] focus:outline-none focus:ring-4 focus:ring-[#315c8c]/15"
+              href={signal.url}
+              key={signal.source}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              {content}
+            </a>
+          ) : (
+            <div className="block rounded-md bg-white px-3 py-2 text-sm" key={signal.source}>
+              {content}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -69,24 +81,9 @@ function ReviewSignals({ signals }: { signals?: BookReviewSignal[] }) {
 
 export function BookCard({ book, isSaved, onSave }: BookCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
-  const metadata = [
-    ["Format", book.metadata.format],
-    ["Audience", book.metadata.audience],
-    ["Language", book.metadata.language],
-    ["Publication year", book.metadata.publicationYear],
-  ];
-
-  if (book.metadata.pageCount) {
-    metadata.push(["Pages", `${book.metadata.pageCount}`]);
-  }
-
-  if (book.rating) {
-    metadata.push(["Rating", book.rating]);
-  }
-
-  if (book.metadata.pickupBranch) {
-    metadata.push(["Pickup branch", book.metadata.pickupBranch]);
-  }
+  const genre = book.metadata.genreTags?.[0] || "Uncategorized";
+  const badges = [genre, book.metadata.format, book.metadata.language, book.metadata.audience];
+  const metadata = book.metadata.publicationYear !== "Not listed" ? [["Publication year", book.metadata.publicationYear]] : [];
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-lg border border-[#d8ccb9] bg-white shadow-sm">
@@ -108,17 +105,15 @@ export function BookCard({ book, isSaved, onSave }: BookCardProps) {
 
         <div>
           <div className="mb-3 flex flex-wrap gap-2">
-            <span className="rounded-md bg-[#cbd8bc] px-2.5 py-1 text-xs font-bold text-[#214d45]">
-              {book.matchScore ? `${Math.round(book.matchScore)}% match` : "Recommended"}
-            </span>
-            <span className="rounded-md bg-[#eef4fb] px-2.5 py-1 text-xs font-bold text-[#315c8c]">
-              SPL hold
-            </span>
+            {badges.map((badge) => (
+              <span className="rounded-md bg-[#eef4fb] px-2.5 py-1 text-xs font-bold text-[#315c8c]" key={badge}>
+                {badge}
+              </span>
+            ))}
           </div>
           <h3 className="text-xl font-bold leading-7 text-[#20231c]">{book.title}</h3>
           <p className="mt-1 text-sm font-semibold text-[#555d50]">by {book.author}</p>
           <div className="mt-3 space-y-1 text-sm font-medium text-[#6a6257]">
-            <p>{book.source === "spl-catalog" ? "Live catalog result" : "Catalog hold search"}</p>
             <p>{book.availabilityNote ?? "Open SPL catalog to confirm current copies and place a hold"}</p>
           </div>
         </div>
@@ -134,14 +129,16 @@ export function BookCard({ book, isSaved, onSave }: BookCardProps) {
 
         <ReviewSignals signals={book.reviewSignals} />
 
-        <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
-          {metadata.map(([label, value]) => (
-            <div className="rounded-md border border-[#e4dacb] bg-[#fbf8f1] p-3" key={label}>
-              <dt className="text-xs font-bold uppercase text-[#777064]">{label}</dt>
-              <dd className="mt-1 font-semibold text-[#20231c]">{value}</dd>
-            </div>
-          ))}
-        </dl>
+        {metadata.length > 0 ? (
+          <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
+            {metadata.map(([label, value]) => (
+              <div className="rounded-md border border-[#e4dacb] bg-[#fbf8f1] p-3" key={label}>
+                <dt className="text-xs font-bold uppercase text-[#777064]">{label}</dt>
+                <dd className="mt-1 font-semibold text-[#20231c]">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
 
         {book.availabilityNote ? (
           <p className="mt-4 text-xs font-semibold uppercase text-[#6a6257]">{book.availabilityNote}</p>
@@ -154,7 +151,7 @@ export function BookCard({ book, isSaved, onSave }: BookCardProps) {
             rel="noopener noreferrer"
             target="_blank"
           >
-            Place Hold at SPL
+            Check SPL catalog
           </a>
           <button
             className={`rounded-md border px-4 py-3 text-sm font-bold transition focus:outline-none focus:ring-4 ${
