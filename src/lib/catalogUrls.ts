@@ -27,28 +27,3 @@ export function buildSplCatalogSearchUrl({ query, pickupBranch, format }: Catalo
 
   return `${SPL_CATALOG_BASE_URL}/Search/Results?${params.toString()}`;
 }
-
-type BookSourceUrlOptions = {
-  title: string;
-  author?: string;
-};
-
-function bookSourceQuery({ title, author }: BookSourceUrlOptions) {
-  return [title, author].filter(Boolean).join(" ").trim();
-}
-
-export function buildGoodreadsSearchUrl(options: BookSourceUrlOptions) {
-  const params = new URLSearchParams({
-    q: bookSourceQuery(options),
-  });
-
-  return `https://www.goodreads.com/search?${params.toString()}`;
-}
-
-export function buildGoogleBooksSearchUrl(options: BookSourceUrlOptions) {
-  const params = new URLSearchParams({
-    q: bookSourceQuery(options),
-  });
-
-  return `https://books.google.com/books?${params.toString()}`;
-}

@@ -15,8 +15,6 @@ export const formats = ["Book", "Picture Book"];
 export const bookTypes = ["Any", "Fiction", "Nonfiction"];
 export const audiences = ["General", "Adult", "Juvenile", "Young Adult"];
 export const moods = ["Any mood", "Cozy", "Thought-provoking", "Funny", "Adventurous", "Reflective"];
-export const minimumRatings = ["Any rating", "3.5", "4.0", "4.25", "4.5"];
-export const maxPageOptions = ["Any length", "Under 200", "Under 300", "Under 400", "Under 500"];
 export const genres = [
   "Any genre",
   "Mystery",
@@ -40,6 +38,4 @@ export const defaultFilters: CatalogSearchFilters = {
   mood: moods[0],
   genre: genres[0],
   authorContains: "",
-  minimumRating: minimumRatings[0],
-  maxPages: maxPageOptions[0],
 };

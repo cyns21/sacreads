@@ -3,8 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "SacReads",
-  description:
-    "AI-assisted physical book recommendations for Sacramento Public Library readers.",
+  description: "Simple Sacramento Public Library book recommendations from a local dataset.",
 };
 
 export default function RootLayout({

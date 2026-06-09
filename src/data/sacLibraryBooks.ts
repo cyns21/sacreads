@@ -1,103 +1,94 @@
 import localBooks from "@/data/books.json";
 import { buildSplCatalogSearchUrl } from "@/lib/catalogUrls";
-import type { BookRecommendation, BookReviewSignal, LocalBookRecord } from "@/types/book";
+import type { BookRecommendation, LocalBookRecord } from "@/types/book";
 
-function formatCount(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    notation: value >= 100000 ? "compact" : "standard",
-    maximumFractionDigits: 1,
-  }).format(value);
+const fallbackTitle = "Untitled book";
+const fallbackAuthor = "Unknown author";
+const fallbackGenre = "Uncategorized";
+
+function stringValue(value: unknown, fallback: string) {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
-function formatRating(value: number) {
-  return `${value.toFixed(1)}/5`;
+function makeFallbackId(title: string, author: string, index: number) {
+  const slug = `${title}-${author}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 90);
+
+  return slug || `spl-book-${index + 1}`;
 }
 
-function hasRating(book: LocalBookRecord) {
-  return typeof book.goodreadsRating === "number" && Number.isFinite(book.goodreadsRating);
-}
-
-function hasReviewCount(book: LocalBookRecord) {
-  return typeof book.goodreadsReviewCount === "number" && Number.isFinite(book.goodreadsReviewCount);
-}
-
-function buildReviewSignals(book: LocalBookRecord): BookReviewSignal[] {
-  if (!hasRating(book)) {
-    return [
-      {
-        source: "Goodreads",
-        note: "Goodreads info not added yet.",
-        url: book.goodreadsUrl || undefined,
-      },
-    ];
+function normalizePublicationYear(value: LocalBookRecord["publicationYear"]) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
   }
 
-  return [
-    {
-      source: "Goodreads",
-      rating: hasRating(book) ? formatRating(book.goodreadsRating as number) : undefined,
-      count: hasReviewCount(book) ? `${formatCount(book.goodreadsReviewCount as number)} reviews` : undefined,
-      note: "Manually added Goodreads metadata.",
-      url: book.goodreadsUrl || undefined,
-    },
-  ];
+  if (typeof value === "string") {
+    const match = value.match(/\d{4}/);
+    return match?.[0] ?? "Not listed";
+  }
+
+  return "Not listed";
 }
 
-function getCatalogUrl(book: LocalBookRecord) {
+function getGenres(book: LocalBookRecord) {
+  const genres = Array.isArray(book.genres)
+    ? book.genres.filter((genre) => typeof genre === "string" && genre.trim() && genre !== fallbackGenre)
+    : [];
+  const primaryGenre = stringValue(book.genre, genres[0] ?? fallbackGenre);
+
+  return [...new Set([primaryGenre, ...genres])].filter(Boolean);
+}
+
+function getCatalogUrl(book: LocalBookRecord, title: string, author: string, format: string) {
   return (
     book.splCatalogUrl ||
     book.splSearchUrl ||
     buildSplCatalogSearchUrl({
-      query: `${book.title} ${book.author}`,
-      format: book.format || "Book",
+      query: `${title} ${author}`,
+      format,
     })
   );
 }
 
-function makeCatalogBook(book: LocalBookRecord): BookRecommendation {
-  const catalogUrl = getCatalogUrl(book);
-  const isBrowserCatalogResult = book.sourceType === "spl-catalog-browser";
-  const genreTags =
-    book.genres?.length
-      ? book.genres.filter((genre) => genre !== "Uncategorized")
-      : book.genre && book.genre !== "Uncategorized"
-        ? [book.genre]
-        : [];
+function makeCatalogBook(book: LocalBookRecord, index: number): BookRecommendation {
+  const title = stringValue(book.title, fallbackTitle);
+  const author = stringValue(book.author, fallbackAuthor);
+  const format = stringValue(book.format, "Book");
+  const audience = stringValue(book.audience, "Adult / General");
+  const language = stringValue(book.language, "English");
+  const genres = getGenres(book);
+  const genre = genres[0] ?? fallbackGenre;
+  const splCatalogUrl = getCatalogUrl(book, title, author, format);
   const keywords = [
-    book.genre,
-    ...(book.genres ?? []),
-    book.audience,
-    book.format,
-    book.language,
+    genre,
+    ...genres,
+    audience,
+    format,
+    language,
     book.sourceListName,
     ...(book.sourceSeeds ?? []),
-  ].filter(Boolean);
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 
   return {
-    id: book.id,
-    title: book.title,
-    author: book.author,
-    rating: hasRating(book) ? formatRating(book.goodreadsRating as number) : undefined,
-    ratingAverage: hasRating(book) ? book.goodreadsRating ?? undefined : undefined,
-    ratingCount: hasReviewCount(book) ? book.goodreadsReviewCount ?? undefined : undefined,
-    description: book.description || "Description not added yet.",
-    whyThisFits: isBrowserCatalogResult
-      ? `Found in a public Sacramento Public Library catalog search for ${book.sourceSeed || "this topic"}.`
-      : `A Sacramento Public Library reading-list pick from ${book.sourceListName || "a public SPL list"}.`,
-    coverImageUrl: book.coverUrl || undefined,
-    catalogUrl,
-    requestUrl: catalogUrl,
+    id: stringValue(book.id, makeFallbackId(title, author, index)),
+    title,
+    author,
+    genre,
+    splCatalogUrl,
+    splSearchUrl: book.splSearchUrl,
     source: "curated-catalog",
     sourceType: book.sourceType ?? "spl-catalog-browser",
-    availabilityNote: "Check SPL catalog for current locations, copies, and request options.",
+    sourceListName: book.sourceListName,
+    sourcePageUrl: book.sourcePageUrl,
     keywords,
-    reviewSignals: buildReviewSignals(book),
     metadata: {
-      format: book.format || "Book",
-      audience: book.audience || "Adult / General",
-      language: book.language || "English",
-      publicationYear: book.publicationYear ? String(book.publicationYear) : "Not listed",
-      genreTags,
+      format,
+      audience,
+      language,
+      publicationYear: normalizePublicationYear(book.publicationYear),
     },
   };
 }

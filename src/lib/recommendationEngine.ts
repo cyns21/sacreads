@@ -72,45 +72,6 @@ function yearScore(publicationYear: string, yearFrom: string, yearTo: string) {
   return !Number.isNaN(from) || !Number.isNaN(to) ? 6 : 0;
 }
 
-function buildWhyThisFits(book: BookRecommendation, filters: CatalogSearchFilters, score: number) {
-  const reasons = [];
-
-  if (filters.genre !== "Any genre") {
-    reasons.push(filters.genre.toLowerCase());
-  }
-
-  if (filters.mood !== "Any mood") {
-    reasons.push(`${filters.mood.toLowerCase()} tone`);
-  }
-
-  if (filters.audience !== "General") {
-    reasons.push(`${filters.audience.toLowerCase()} audience`);
-  }
-
-  if (filters.pickupBranch) {
-    reasons.push(`physical pickup at ${filters.pickupBranch}`);
-  }
-
-  if (filters.minimumRating !== "Any rating") {
-    reasons.push(`${filters.minimumRating}+ rating`);
-  }
-
-  if (filters.maxPages !== "Any length") {
-    reasons.push(filters.maxPages.toLowerCase());
-  }
-
-  if (filters.authorContains.trim()) {
-    reasons.push(`author match for "${filters.authorContains.trim()}"`);
-  }
-
-  if (reasons.length === 0) {
-    return book.whyThisFits;
-  }
-
-  const percent = Math.min(99, Math.max(52, Math.round(score)));
-  return `SacReadsRank matched this at ${percent}% for ${reasons.join(", ")}. ${book.description}`;
-}
-
 export function rankRecommendations(books: BookRecommendation[], filters: CatalogSearchFilters) {
   const queryTokens = tokenize(filters.query);
   const desiredMood = moodKeywords[filters.mood] ?? [];
@@ -121,13 +82,10 @@ export function rankRecommendations(books: BookRecommendation[], filters: Catalo
       const searchable = [
         book.title,
         book.author,
-        book.description,
+        book.genre,
         book.metadata.format,
         book.metadata.audience,
         book.metadata.language,
-        book.rating,
-        String(book.metadata.pageCount ?? ""),
-        ...(book.metadata.genreTags ?? []),
         ...(book.keywords ?? []),
       ]
         .join(" ")
@@ -171,20 +129,9 @@ export function rankRecommendations(books: BookRecommendation[], filters: Catalo
 
       score += yearScore(book.metadata.publicationYear, filters.yearFrom, filters.yearTo);
 
-      const minimumRating = Number.parseFloat(filters.minimumRating);
-
-      if (!Number.isNaN(minimumRating) && (book.ratingAverage ?? 0) >= minimumRating) {
-        score += 8;
-      }
-
       return {
         ...book,
         matchScore: Math.min(99, Math.max(35, score)),
-        whyThisFits: buildWhyThisFits(book, filters, score),
-        metadata: {
-          ...book.metadata,
-          pickupBranch: filters.pickupBranch,
-        },
       };
     })
     .sort((first, second) => (second.matchScore ?? 0) - (first.matchScore ?? 0));

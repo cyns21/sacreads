@@ -46,16 +46,8 @@ function clean(value = "") {
   return String(value).replace(/\s+/g, " ").trim();
 }
 
-function isMissingText(value) {
-  return typeof value !== "string" || value.trim().length === 0;
-}
-
-function isMissingNumber(value) {
-  return typeof value !== "number" || !Number.isFinite(value);
-}
-
 function normalizeText(value, fallback) {
-  return isMissingText(value) ? fallback : value.trim();
+  return typeof value !== "string" || value.trim().length === 0 ? fallback : value.trim();
 }
 
 function parseFilename(filename) {
@@ -185,10 +177,6 @@ const formatCounts = withExpectedCounts(
   expectedFormats,
 );
 
-const missingGoodreadsUrl = books.filter((book) => isMissingText(book.goodreadsUrl));
-const missingGoodreadsRating = books.filter((book) => isMissingNumber(book.goodreadsRating));
-const missingDescription = books.filter((book) => isMissingText(book.description));
-const missingCoverUrl = books.filter((book) => isMissingText(book.coverUrl));
 const warnings = [];
 const missingCsvGenres = [...csvGenreSet].filter((genre) => !representedCsvGenreSet.has(genre));
 const dominantGenre = sortedCounts(genreCounts).find(([genre]) => genre !== "Uncategorized");
@@ -242,9 +230,3 @@ console.log("\nTop 10 sourceSeeds by book count:");
 for (const [seed, count] of sortedCounts(sourceSeedCounts).slice(0, 10)) {
   console.log(`- ${seed}: ${count}`);
 }
-
-console.log("\nMetadata gaps:");
-console.log(`- Books missing Goodreads URL: ${missingGoodreadsUrl.length}`);
-console.log(`- Books missing Goodreads rating: ${missingGoodreadsRating.length}`);
-console.log(`- Books missing description: ${missingDescription.length}`);
-console.log(`- Books missing coverUrl: ${missingCoverUrl.length}`);

@@ -25,11 +25,6 @@ const finalFields = [
   "format",
   "language",
   "publicationYear",
-  "description",
-  "coverUrl",
-  "goodreadsRating",
-  "goodreadsReviewCount",
-  "goodreadsUrl",
   "splCatalogUrl",
   "splSearchUrl",
   "sourceListName",
@@ -179,19 +174,6 @@ function hasNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function parseExistingNumber(value) {
-  if (hasNumber(value)) {
-    return value;
-  }
-
-  if (!hasText(value)) {
-    return null;
-  }
-
-  const parsed = Number(String(value).replace(/,/g, ""));
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 function hasValue(record, field) {
   const value = record[field];
 
@@ -199,7 +181,7 @@ function hasValue(record, field) {
     return Array.isArray(value) && value.length > 0;
   }
 
-  if (field === "publicationYear" || field === "goodreadsRating" || field === "goodreadsReviewCount") {
+  if (field === "publicationYear") {
     return hasNumber(value);
   }
 
@@ -516,11 +498,6 @@ function normalizeExistingBook(record) {
     format: normalizeExistingFormat(record.format),
     language: normalizeExistingLanguage(record.language),
     publicationYear: hasNumber(record.publicationYear) ? record.publicationYear : parsePublicationYear(record.publicationYear),
-    description: hasText(record.description) ? record.description : "",
-    coverUrl: hasText(record.coverUrl) ? record.coverUrl : "",
-    goodreadsRating: parseExistingNumber(record.goodreadsRating),
-    goodreadsReviewCount: parseExistingNumber(record.goodreadsReviewCount),
-    goodreadsUrl: hasText(record.goodreadsUrl) ? record.goodreadsUrl : "",
     splCatalogUrl: hasText(record.splCatalogUrl) ? record.splCatalogUrl : buildSearchUrl(title, author),
     splSearchUrl: hasText(record.splSearchUrl) ? record.splSearchUrl : buildSearchUrl(title, author),
     sourceListName: hasText(record.sourceListName) ? record.sourceListName : "SPL catalog CSV",
@@ -552,11 +529,6 @@ function makeBook(row, filenameMeta, filename) {
     format,
     language: filenameMeta.language,
     publicationYear: parsePublicationYear(row["Publish Date"]),
-    description: "",
-    coverUrl: "",
-    goodreadsRating: null,
-    goodreadsReviewCount: null,
-    goodreadsUrl: "",
     splCatalogUrl: clean(row.Link) || buildSearchUrl(title, author),
     splSearchUrl: buildSearchUrl(title, author),
     sourceListName: "SPL catalog CSV",
@@ -600,7 +572,7 @@ function mergeBooks(existing, incoming) {
 function applyPreservedMetadata(incoming, preserved) {
   const book = { ...incoming };
 
-  for (const field of ["id", "description", "coverUrl", "goodreadsRating", "goodreadsReviewCount", "goodreadsUrl"]) {
+  for (const field of ["id"]) {
     if (hasValue(preserved, field)) {
       book[field] = preserved[field];
     }

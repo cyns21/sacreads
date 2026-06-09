@@ -1,16 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BookCard } from "@/components/BookCard";
 import { SavedBooks } from "@/components/SavedBooks";
 import { SearchForm } from "@/components/SearchForm";
 import { sacLibraryBooks } from "@/data/sacLibraryBooks";
+import { readSavedBooks, toSavedBook, writeSavedBooks, maxSavedBooks } from "@/lib/savedBooks";
 import type { BookRecommendation, BrowseFilters, ClientBook, FilterOption, SavedBook } from "@/types/book";
 
-const savedBooksKey = "savedBooks";
-const legacySavedBooksKey = "sacreads:saved-books";
 const initialVisibleRecommendations = 12;
-const maxSavedBooks = 24;
 const genreOrder = [
   "Mystery",
   "Fantasy",
@@ -45,84 +43,27 @@ type SacReadsAppProps = {
 function toClientBook(book: BookRecommendation): ClientBook {
   return {
     id: book.id,
-    title: book.title,
-    author: book.author,
-    description: book.description,
-    whyThisFits: book.whyThisFits,
-    coverImageUrl: book.coverImageUrl,
-    catalogUrl: book.catalogUrl,
-    requestUrl: book.requestUrl || book.catalogUrl,
+    title: book.title || "Untitled book",
+    author: book.author || "Unknown author",
+    genre: book.genre || "Uncategorized",
+    splCatalogUrl: book.splCatalogUrl || "https://catalog.saclibrary.org/",
+    splSearchUrl: book.splSearchUrl,
     source: book.source,
     sourceType: book.sourceType,
+    sourceListName: book.sourceListName,
+    sourcePageUrl: book.sourcePageUrl,
     matchScore: book.matchScore,
-    availabilityNote: book.availabilityNote,
-    rating: book.rating,
-    ratingAverage: book.ratingAverage,
-    ratingCount: book.ratingCount,
-    reviewSignals: book.reviewSignals?.slice(0, 1),
     metadata: {
-      format: book.metadata.format,
-      audience: book.metadata.audience,
-      language: book.metadata.language,
-      publicationYear: book.metadata.publicationYear,
-      pickupBranch: book.metadata.pickupBranch,
-      pageCount: book.metadata.pageCount,
-      genreTags: book.metadata.genreTags?.slice(0, 3),
+      format: book.metadata?.format || "Book",
+      audience: book.metadata?.audience || "Adult / General",
+      language: book.metadata?.language || "English",
+      publicationYear: book.metadata?.publicationYear || "Not listed",
     },
   };
 }
 
-function toSavedBook(book: ClientBook): SavedBook {
-  return {
-    id: book.id,
-    title: book.title,
-    author: book.author,
-    coverImageUrl: book.coverImageUrl,
-    requestUrl: book.requestUrl,
-    publicationYear: book.metadata.publicationYear,
-  };
-}
-
-function parseSavedBooks(snapshot: string | null) {
-  if (!snapshot) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(snapshot) as Partial<SavedBook>[];
-
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed
-      .filter((book) => book.id && book.title && book.author)
-      .map((book) => ({
-        id: String(book.id),
-        title: String(book.title),
-        author: String(book.author),
-        coverImageUrl: typeof book.coverImageUrl === "string" ? book.coverImageUrl : undefined,
-        requestUrl: typeof book.requestUrl === "string" ? book.requestUrl : "https://catalog.saclibrary.org/",
-        publicationYear: typeof book.publicationYear === "string" ? book.publicationYear : "Not listed",
-      }))
-      .slice(0, maxSavedBooks);
-  } catch {
-    return [];
-  }
-}
-
-function readSavedBooks() {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  return parseSavedBooks(
-    window.localStorage.getItem(savedBooksKey) ?? window.localStorage.getItem(legacySavedBooksKey),
-  );
-}
-
 function getBookGenre(book: ClientBook) {
-  return book.metadata.genreTags?.[0] || "Uncategorized";
+  return book.genre || "Uncategorized";
 }
 
 function parsePublicationYear(book: ClientBook) {
@@ -183,18 +124,6 @@ function sortBooks(books: ClientBook[], sort: BrowseFilters["sort"]) {
   const nextBooks = [...books];
 
   return nextBooks.sort((left, right) => {
-    if (sort === "Highest Goodreads rating") {
-      const leftRating = left.ratingAverage ?? -1;
-      const rightRating = right.ratingAverage ?? -1;
-      return rightRating - leftRating || left.title.localeCompare(right.title);
-    }
-
-    if (sort === "Most Goodreads reviews") {
-      const leftCount = left.ratingCount ?? -1;
-      const rightCount = right.ratingCount ?? -1;
-      return rightCount - leftCount || left.title.localeCompare(right.title);
-    }
-
     if (sort === "Newest") {
       const leftYear = parsePublicationYear(left) ?? -1;
       const rightYear = parsePublicationYear(right) ?? -1;
@@ -215,20 +144,16 @@ export function SacReadsApp({ onSavedCountChange }: SacReadsAppProps) {
   const allBooks = useMemo(() => sacLibraryBooks.map((book) => toClientBook(book)), []);
   const [filters, setFilters] = useState<BrowseFilters>(defaultFilters);
   const [visibleRecommendations, setVisibleRecommendations] = useState(initialVisibleRecommendations);
-  const [savedBooks, setSavedBooks] = useState<SavedBook[]>(readSavedBooks);
+  const [savedBooks, setSavedBooks] = useState<SavedBook[]>([]);
+  const hasLoadedSavedBooks = useRef(false);
 
   useEffect(() => {
-    let isMounted = true;
+    if (hasLoadedSavedBooks.current) {
+      return;
+    }
 
-    queueMicrotask(() => {
-      if (isMounted) {
-        setSavedBooks(readSavedBooks());
-      }
-    });
-
-    return () => {
-      isMounted = false;
-    };
+    hasLoadedSavedBooks.current = true;
+    setSavedBooks(readSavedBooks());
   }, []);
 
   useEffect(() => {
@@ -245,17 +170,20 @@ export function SacReadsApp({ onSavedCountChange }: SacReadsAppProps) {
     [allBooks],
   );
   const filteredBooks = useMemo(
-    () => sortBooks(allBooks.filter((book) => matchesFilters(book, filters)), filters.sort),
+    () => (filters.genre ? sortBooks(allBooks.filter((book) => matchesFilters(book, filters)), filters.sort) : []),
     [allBooks, filters],
   );
-  const visibleBooks = filteredBooks.slice(0, visibleRecommendations);
+  const visibleBooks = useMemo(
+    () => filteredBooks.slice(0, visibleRecommendations),
+    [filteredBooks, visibleRecommendations],
+  );
   const savedIds = useMemo(() => new Set(savedBooks.map((book) => book.id)), [savedBooks]);
   const hasSelectedGenre = Boolean(filters.genre);
   const resultCount = hasSelectedGenre ? filteredBooks.length : allBooks.length;
 
   function persistSavedBooks(nextBooks: SavedBook[]) {
     setSavedBooks(nextBooks);
-    window.localStorage.setItem(savedBooksKey, JSON.stringify(nextBooks));
+    writeSavedBooks(nextBooks);
   }
 
   function toggleSavedBook(book: ClientBook) {
@@ -321,7 +249,12 @@ export function SacReadsApp({ onSavedCountChange }: SacReadsAppProps) {
             <>
               <div className="grid gap-5 lg:grid-cols-3">
                 {visibleBooks.map((book) => (
-                  <BookCard book={book} isSaved={savedIds.has(book.id)} key={book.id} onSave={toggleSavedBook} />
+                  <BookCard
+                    book={book}
+                    isSaved={savedIds.has(book.id)}
+                    key={book.id}
+                    onToggleSaved={() => toggleSavedBook(book)}
+                  />
                 ))}
               </div>
 

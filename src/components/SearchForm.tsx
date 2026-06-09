@@ -26,13 +26,7 @@ type SelectFieldProps = {
   onChange: (name: keyof BrowseFilters, value: string) => void;
 };
 
-const sortOptions: BrowseSort[] = [
-  "Highest Goodreads rating",
-  "Most Goodreads reviews",
-  "Newest",
-  "Oldest",
-  "Title A-Z",
-];
+const sortOptions: BrowseSort[] = ["Newest", "Oldest", "Title A-Z"];
 
 function optionText(option: FilterOption) {
   return option.count < 5 ? `${option.label} (${option.count})` : option.label;

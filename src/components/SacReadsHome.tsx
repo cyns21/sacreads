@@ -13,8 +13,8 @@ export function SacReadsHome() {
     <div className="min-h-screen bg-[#f8f5ee] text-[#20231c]">
       <Header savedCount={savedCount} />
       <main id="home">
-        <SacReadsApp onSavedCountChange={setSavedCount} />
         <HowItWorks />
+        <SacReadsApp onSavedCountChange={setSavedCount} />
       </main>
       <Footer />
     </div>
