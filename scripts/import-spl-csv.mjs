@@ -11,6 +11,7 @@ const LOG_PATH = resolve("data/import-log.txt");
 const DEFAULT_MAX_BOOKS = 5000;
 const DEFAULT_MAX_ROWS_PER_FILE = 150;
 const DEFAULT_MAX_FILES_PER_RUN = 78;
+const DEFAULT_FILE_BOOK_LIMIT = null;
 const PROCESS_ALL_FILES_BALANCED = true;
 const SAVE_EVERY_NEW_UNIQUE_BOOKS = 500;
 
@@ -89,6 +90,7 @@ function parseArgs(argv) {
     maxBooks: DEFAULT_MAX_BOOKS,
     maxRowsPerFile: DEFAULT_MAX_ROWS_PER_FILE,
     maxFiles: DEFAULT_MAX_FILES_PER_RUN,
+    fileBookLimit: DEFAULT_FILE_BOOK_LIMIT,
   };
 
   for (const arg of argv) {
@@ -131,6 +133,15 @@ function parseArgs(argv) {
         throw new Error(`Invalid --max-rows-per-file value: ${arg}`);
       }
       options.maxRowsPerFile = value;
+      continue;
+    }
+
+    if (arg.startsWith("--file-book-limit=")) {
+      const value = Number(arg.slice("--file-book-limit=".length));
+      if (!Number.isInteger(value) || value < 1) {
+        throw new Error(`Invalid --file-book-limit value: ${arg}`);
+      }
+      options.fileBookLimit = value;
       continue;
     }
 
@@ -384,7 +395,11 @@ function getBalancedFileEntries(entries) {
   return result;
 }
 
-function getFileBookLimits(entries, maxBooks, existingBookCount) {
+function getFileBookLimits(entries, maxBooks, existingBookCount, fileBookLimit) {
+  if (fileBookLimit !== null) {
+    return new Map(entries.map((entry) => [entry.filename, fileBookLimit]));
+  }
+
   const remainingBookSlots = Math.max(0, maxBooks - existingBookCount);
   const fileCount = Math.max(1, entries.length);
   const baseLimit = Math.floor(remainingBookSlots / fileCount);
@@ -657,6 +672,7 @@ async function writeProgress(progress, totals, options) {
     outputPath: "src/data/books.json",
     maxBooks: options.maxBooks,
     maxRowsPerFile: options.maxRowsPerFile,
+    fileBookLimit: options.fileBookLimit,
     balanced: options.balanced,
     updatedAt: now,
     completedFiles: [...new Set(progress.completedFiles)].sort(),
@@ -721,6 +737,7 @@ function createTotals(existingBooksLoaded, existingBooksSkippedForCap, maxBooks)
     rowsMissingAuthorSkipped: 0,
     rowsRejectedSkipped: 0,
     booksSkippedByFileBookLimit: 0,
+    booksSkippedByMaxBooks: 0,
     partialSaves: 0,
     capReached: existingBooksLoaded >= maxBooks,
   };
@@ -854,6 +871,7 @@ async function processFile({
     rowsMissingAuthorSkipped: 0,
     rowsRejectedSkipped: 0,
     booksSkippedByFileBookLimit: 0,
+    booksSkippedByMaxBooks: 0,
     capReached: false,
   };
 
@@ -905,7 +923,8 @@ async function processFile({
 
     if (books.length >= maxBooks) {
       summary.capReached = true;
-      break;
+      summary.booksSkippedByMaxBooks += 1;
+      continue;
     }
 
     const preserved = metadataByKey?.get(key);
@@ -943,6 +962,7 @@ async function processFile({
   totals.rowsMissingAuthorSkipped += summary.rowsMissingAuthorSkipped;
   totals.rowsRejectedSkipped += summary.rowsRejectedSkipped;
   totals.booksSkippedByFileBookLimit += summary.booksSkippedByFileBookLimit;
+  totals.booksSkippedByMaxBooks += summary.booksSkippedByMaxBooks;
   totals.capReached = totals.capReached || summary.capReached || books.length >= maxBooks;
 
   return { summary, newBooksSinceSave };
@@ -961,7 +981,7 @@ async function main() {
 
   if (options.dryRun) {
     await logLine(
-      `DRY RUN start: balanced=${options.balanced}, maxFiles=${options.maxFiles}, maxRowsPerFile=${options.maxRowsPerFile}, maxBooks=${options.maxBooks}, candidates=${filesToProcess.length}, skippedByProgress=${skippedByProgress}`,
+      `DRY RUN start: balanced=${options.balanced}, maxFiles=${options.maxFiles}, maxRowsPerFile=${options.maxRowsPerFile}, fileBookLimit=${options.fileBookLimit ?? "auto"}, maxBooks=${options.maxBooks}, candidates=${filesToProcess.length}, skippedByProgress=${skippedByProgress}`,
       true,
     );
 
@@ -1009,22 +1029,19 @@ async function main() {
   totals.existingMetadataLoaded = metadataByKey?.size ?? 0;
   totals.duplicatesMerged += duplicatesMerged;
   totals.filesSkippedByProgress = skippedByProgress;
-  const fileBookLimits = options.balanced ? getFileBookLimits(filesToProcess, options.maxBooks, books.length) : new Map();
+  const fileBookLimits =
+    options.balanced || options.fileBookLimit !== null
+      ? getFileBookLimits(filesToProcess, options.maxBooks, books.length, options.fileBookLimit)
+      : new Map();
 
   await logLine(
-    `Import start: reset=${options.reset}, balanced=${options.balanced}, maxFiles=${options.maxFiles}, maxRowsPerFile=${options.maxRowsPerFile}, maxBooks=${options.maxBooks}, existingRead=${existingBooksRead}, existingLoaded=${books.length}, existingSkippedForCap=${skippedForCap}, candidates=${filesToProcess.length}, skippedByProgress=${skippedByProgress}`,
+    `Import start: reset=${options.reset}, balanced=${options.balanced}, maxFiles=${options.maxFiles}, maxRowsPerFile=${options.maxRowsPerFile}, fileBookLimit=${options.fileBookLimit ?? "auto"}, maxBooks=${options.maxBooks}, existingRead=${existingBooksRead}, existingLoaded=${books.length}, existingSkippedForCap=${skippedForCap}, candidates=${filesToProcess.length}, skippedByProgress=${skippedByProgress}`,
     false,
   );
 
   let newBooksSinceSave = 0;
 
   for (const entry of filesToProcess) {
-    if (books.length >= options.maxBooks) {
-      totals.capReached = true;
-      await logLine(`Stopping before ${entry.filename}: maxBooks=${options.maxBooks} already reached.`, false);
-      break;
-    }
-
     const result = await processFile({
       filename: entry.filename,
       books,
@@ -1053,7 +1070,7 @@ async function main() {
 
     await writeProgress(progress, totals, options);
     await logLine(
-      `${entry.filename}: genre=${entry.metadata.genre}, rows=${result.summary.rowsRead}, rowLimitHit=${result.summary.rowLimitHit ? "yes" : "no"}, fileBookLimit=${fileBookLimits.get(entry.filename) ?? "none"}, added=${result.summary.booksAdded}, skippedByFileBookLimit=${result.summary.booksSkippedByFileBookLimit}, duplicates=${result.summary.duplicatesMerged}, digitalSkipped=${result.summary.digitalRowsSkipped}, missingTitle=${result.summary.rowsMissingTitleSkipped}, missingAuthor=${result.summary.rowsMissingAuthorSkipped}, rejected=${result.summary.rowsRejectedSkipped}, totalBooks=${books.length}`,
+      `${entry.filename}: genre=${entry.metadata.genre}, rows=${result.summary.rowsRead}, rowLimitHit=${result.summary.rowLimitHit ? "yes" : "no"}, fileBookLimit=${fileBookLimits.get(entry.filename) ?? "none"}, added=${result.summary.booksAdded}, skippedByFileBookLimit=${result.summary.booksSkippedByFileBookLimit}, skippedByMaxBooks=${result.summary.booksSkippedByMaxBooks}, duplicates=${result.summary.duplicatesMerged}, digitalSkipped=${result.summary.digitalRowsSkipped}, missingTitle=${result.summary.rowsMissingTitleSkipped}, missingAuthor=${result.summary.rowsMissingAuthorSkipped}, rejected=${result.summary.rowsRejectedSkipped}, totalBooks=${books.length}`,
       false,
     );
   }
@@ -1071,6 +1088,7 @@ async function main() {
   console.log(`Total unique books written: ${books.length}`);
   console.log(`Books added: ${totals.booksAdded}`);
   console.log(`Books skipped by balanced file limit: ${totals.booksSkippedByFileBookLimit}`);
+  console.log(`Books skipped by maxBooks: ${totals.booksSkippedByMaxBooks}`);
   console.log(`Duplicates merged: ${totals.duplicatesMerged}`);
   console.log(`Digital-only rows skipped: ${totals.digitalRowsSkipped}`);
   console.log(`Rows missing title skipped: ${totals.rowsMissingTitleSkipped}`);
@@ -1084,7 +1102,7 @@ async function main() {
   printCounts("Counts by format:", countsByFormat);
 
   await logLine(
-    `Import complete: processed=${totals.filesProcessed}, rows=${totals.rowsRead}, added=${totals.booksAdded}, duplicates=${totals.duplicatesMerged}, totalBooks=${books.length}, capReached=${totals.capReached}`,
+    `Import complete: processed=${totals.filesProcessed}, rows=${totals.rowsRead}, added=${totals.booksAdded}, duplicates=${totals.duplicatesMerged}, skippedByMaxBooks=${totals.booksSkippedByMaxBooks}, totalBooks=${books.length}, capReached=${totals.capReached}`,
     false,
   );
 }

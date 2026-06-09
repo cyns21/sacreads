@@ -12,6 +12,7 @@
     "import:spl:csv": "node scripts/import-spl-csv.mjs --balanced",
     "import:spl:csv:reset": "node scripts/import-spl-csv.mjs --reset --balanced",
     "import:spl:csv:balanced": "node scripts/import-spl-csv.mjs --reset --balanced --max-rows-per-file=150 --max-books=5000",
+    "import:spl:csv:balanced:larger": "node scripts/import-spl-csv.mjs --reset --balanced --max-rows-per-file=250 --file-book-limit=100 --max-books=6000",
     "import:spl:csv:dry": "node scripts/import-spl-csv.mjs --dry-run --balanced --max-files=3",
     "import:goodreads": "node scripts/import-goodreads-metadata.mjs",
     "export:goodreads:missing": "node scripts/export-goodreads-missing.mjs",
