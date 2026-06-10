@@ -1,6 +1,7 @@
 "use client";
 
 import { BookMetaIcons } from "@/components/BookMetaIcons";
+import { formatAuthorName } from "@/lib/formatAuthorName";
 import type { ClientBook, SavedBook } from "@/types/book";
 
 type BookCardBook = ClientBook | SavedBook;
@@ -36,7 +37,7 @@ function valueOrFallback(value: string | undefined, fallback: string) {
 export function BookCard({ book, isSaved, onToggleSaved }: BookCardProps) {
   const accent = genreAccents.get(getGenre(book)) ?? "#214d45";
   const title = valueOrFallback(book.title, "Untitled book");
-  const author = valueOrFallback(book.author, "Unknown author");
+  const author = valueOrFallback(formatAuthorName(book.author), "Unknown author");
   const splCatalogUrl = valueOrFallback(book.splCatalogUrl, "https://catalog.saclibrary.org/");
 
   return (

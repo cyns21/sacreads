@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { formatAuthorName } from "@/lib/formatAuthorName";
 
 type MockBookCoverProps = {
   id: string;
@@ -88,6 +89,7 @@ function titleClass(title: string) {
 
 export function MockBookCover({ id, title, author, year }: MockBookCoverProps) {
   const theme = coverThemes[hashText(`${id}-${title}-${year ?? ""}`) % coverThemes.length];
+  const displayAuthor = formatAuthorName(author) || "Unknown author";
   const style = {
     "--cover-bg": theme.background,
     "--cover-accent": theme.accent,
@@ -124,7 +126,7 @@ export function MockBookCover({ id, title, author, year }: MockBookCoverProps) {
           </h3>
           <div className="mt-4 h-1 w-12 rounded-full" style={{ backgroundColor: "var(--cover-accent)" }} />
         </div>
-        <p className="truncate text-xs font-bold uppercase tracking-normal">{author}</p>
+        <p className="truncate text-xs font-bold uppercase tracking-normal">{displayAuthor}</p>
       </div>
     </div>
   );

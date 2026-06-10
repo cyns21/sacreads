@@ -2,6 +2,7 @@
 
 import { BookMetaIcons } from "@/components/BookMetaIcons";
 import { MockBookCover } from "@/components/MockBookCover";
+import { formatAuthorName } from "@/lib/formatAuthorName";
 import type { ClientBook } from "@/types/book";
 
 type RecommendationBookCardProps = {
@@ -33,7 +34,7 @@ function BookmarkIcon() {
 
 export function RecommendationBookCard({ book, isSaved, onToggleSaved }: RecommendationBookCardProps) {
   const title = valueOrFallback(book.title, "Untitled book");
-  const author = valueOrFallback(book.author, "Unknown author");
+  const author = valueOrFallback(formatAuthorName(book.author), "Unknown author");
   const splCatalogUrl = valueOrFallback(book.splCatalogUrl, "https://catalog.saclibrary.org/");
 
   return (

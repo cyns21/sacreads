@@ -1,6 +1,7 @@
 "use client";
 
 import { BookMetaIcons } from "@/components/BookMetaIcons";
+import { formatAuthorName } from "@/lib/formatAuthorName";
 import type { SavedBook } from "@/types/book";
 
 type SavedBooksProps = {
@@ -39,7 +40,7 @@ export function SavedBooks({ books, onRemove }: SavedBooksProps) {
                   {book.title || "Untitled book"}
                 </p>
                 <p className="mt-1 truncate text-xs font-medium text-[#6a6257]">
-                  {book.author || "Unknown author"}
+                  {formatAuthorName(book.author) || "Unknown author"}
                 </p>
               </div>
               <div className="grid gap-3">
