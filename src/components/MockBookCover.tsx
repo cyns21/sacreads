@@ -71,20 +71,23 @@ function hashText(value: string) {
 }
 
 function titleClass(title: string) {
-  if (title.length > 76) {
-    return "text-xl leading-6";
+  if (title.length > 92) {
+    return "text-lg leading-snug";
   }
 
-  if (title.length > 48) {
-    return "text-2xl leading-8";
+  if (title.length > 64) {
+    return "text-xl leading-snug";
   }
 
-  return "text-3xl leading-9";
+  if (title.length > 42) {
+    return "text-2xl leading-tight";
+  }
+
+  return "text-3xl leading-tight";
 }
 
 export function MockBookCover({ id, title, author, year }: MockBookCoverProps) {
   const theme = coverThemes[hashText(`${id}-${title}-${year ?? ""}`) % coverThemes.length];
-  const maxTitleLines = title.length > 76 ? 4 : 3;
   const style = {
     "--cover-bg": theme.background,
     "--cover-accent": theme.accent,
@@ -95,26 +98,27 @@ export function MockBookCover({ id, title, author, year }: MockBookCoverProps) {
 
   return (
     <div
-      className="relative isolate mt-4 aspect-[16/11] overflow-hidden rounded-md p-6 shadow-inner"
-      style={{ ...style, background: "var(--cover-bg)", color: "var(--cover-text)" }}
+      className="relative isolate mt-4 min-h-64 rounded-md p-6 shadow-inner"
+      style={{ ...style, color: "var(--cover-text)" }}
     >
-      <div className="absolute -right-12 -top-12 size-36 rounded-full" style={{ backgroundColor: "var(--cover-shape)" }} />
-      <div className="absolute -bottom-16 right-8 size-44 rounded-full" style={{ backgroundColor: "var(--cover-shape-alt)" }} />
-      <div className="absolute bottom-8 right-8 grid grid-cols-4 gap-2" aria-hidden="true">
-        {Array.from({ length: 16 }).map((_, index) => (
-          <span className="size-1 rounded-full opacity-70" key={index} style={{ backgroundColor: "var(--cover-accent)" }} />
-        ))}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 -z-10 overflow-hidden rounded-md"
+        style={{ background: "var(--cover-bg)" }}
+      >
+        <div className="absolute -right-12 -top-12 size-36 rounded-full" style={{ backgroundColor: "var(--cover-shape)" }} />
+        <div className="absolute -bottom-16 right-8 size-44 rounded-full" style={{ backgroundColor: "var(--cover-shape-alt)" }} />
+        <div className="absolute bottom-8 right-8 grid grid-cols-4 gap-2">
+          {Array.from({ length: 16 }).map((_, index) => (
+            <span className="size-1 rounded-full opacity-70" key={index} style={{ backgroundColor: "var(--cover-accent)" }} />
+          ))}
+        </div>
+        <div className="absolute right-0 top-10 h-24 w-24 rounded-l-full border border-r-0 opacity-50" style={{ borderColor: "var(--cover-accent)" }} />
       </div>
-      <div className="absolute right-0 top-10 h-24 w-24 rounded-l-full border border-r-0 opacity-50" style={{ borderColor: "var(--cover-accent)" }} />
-      <div className="relative flex h-full max-w-[78%] flex-col justify-between">
+      <div className="relative flex min-h-52 max-w-[86%] flex-col justify-between gap-8">
         <div>
           <h3
-            className={`${titleClass(title)} overflow-hidden font-bold tracking-normal`}
-            style={{
-              display: "-webkit-box",
-              WebkitBoxOrient: "vertical",
-              WebkitLineClamp: maxTitleLines,
-            }}
+            className={`${titleClass(title)} whitespace-normal break-words font-bold tracking-normal`}
           >
             {title}
           </h3>

@@ -41,7 +41,7 @@ export function RecommendationBookCard({ book, isSaved, onToggleSaved }: Recomme
       <BookMetaIcons genre={book.genre} metadata={book.metadata} size="sm" />
       <MockBookCover author={author} id={book.id} title={title} year={book.metadata.publicationYear} />
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+      <div className="mt-auto grid gap-3 pt-3 sm:grid-cols-[1fr_auto]">
         <a
           className="rounded-md bg-[#214d45] px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-[#173f3a] focus:outline-none focus:ring-4 focus:ring-[#214d45]/20"
           href={splCatalogUrl}

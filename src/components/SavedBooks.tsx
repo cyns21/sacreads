@@ -35,7 +35,7 @@ export function SavedBooks({ books, onRemove }: SavedBooksProps) {
           safeBooks.map((book) => (
             <div className="grid gap-3 rounded-md bg-white p-3" key={book.id}>
               <div className="min-w-0">
-                <p className="block truncate text-sm font-bold text-[#20231c]">
+                <p className="block whitespace-normal break-words text-sm font-bold leading-snug text-[#20231c]">
                   {book.title || "Untitled book"}
                 </p>
                 <p className="mt-1 truncate text-xs font-medium text-[#6a6257]">
