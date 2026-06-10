@@ -17,7 +17,19 @@ export function Header({ savedCount }: HeaderProps) {
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
         <Link className="flex items-center gap-3" href="/" aria-label="SacReads home">
           <span className="grid size-10 place-items-center rounded-md bg-[#214d45] text-sm font-bold text-[#f8f5ee]">
-            SR
+            <svg
+              aria-hidden="true"
+              className="size-5"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z" />
+            </svg>
           </span>
           <span className="text-xl font-bold text-[#20231c]">SacReads</span>
         </Link>
