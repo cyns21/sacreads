@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookCard } from "@/components/BookCard";
+import { RecommendationBookCard } from "@/components/RecommendationBookCard";
+import { RecommendationFilters } from "@/components/RecommendationFilters";
 import { SavedBooks } from "@/components/SavedBooks";
-import { SearchForm } from "@/components/SearchForm";
 import { readSavedBooks, toSavedBook, writeSavedBooks, maxSavedBooks } from "@/lib/savedBooks";
 import type { BrowseFilterOptions, BrowseFilters, ClientBook, SavedBook } from "@/types/book";
 
@@ -71,10 +71,6 @@ export function SacReadsApp({ filterOptions, onSavedCountChange, totalBookCount 
 
   useEffect(() => {
     if (!filters.genre) {
-      setFilteredBooks([]);
-      setResultCount(totalBookCount);
-      setIsLoadingBooks(false);
-      setLoadError(false);
       return;
     }
 
@@ -130,7 +126,7 @@ export function SacReadsApp({ filterOptions, onSavedCountChange, totalBookCount 
       isCurrent = false;
       controller.abort();
     };
-  }, [filters, totalBookCount, visibleRecommendations]);
+  }, [filters, visibleRecommendations]);
 
   const savedIds = useMemo(() => new Set(savedBooks.map((book) => book.id)), [savedBooks]);
   const hasSelectedGenre = Boolean(filters.genre);
@@ -175,14 +171,6 @@ export function SacReadsApp({ filterOptions, onSavedCountChange, totalBookCount 
 
   return (
     <>
-      <SearchForm
-        filters={filters}
-        onChange={handleFiltersChange}
-        onReset={handleResetFilters}
-        options={filterOptions}
-        resultCount={resultCount}
-      />
-
       <section className="border-b border-[#ded3c2] bg-[#f8f5ee]" id="recommendations">
         <div className="mx-auto max-w-6xl px-6 py-16">
           <div className="mb-8 grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
@@ -198,9 +186,18 @@ export function SacReadsApp({ filterOptions, onSavedCountChange, totalBookCount 
             <SavedBooks books={savedBooks} onRemove={removeSavedBook} />
           </div>
 
+          <div className="mb-8 scroll-mt-24" id="find-books">
+            <RecommendationFilters
+              filters={filters}
+              onChange={handleFiltersChange}
+              onReset={handleResetFilters}
+              options={filterOptions}
+            />
+          </div>
+
           {!hasSelectedGenre ? (
             <div className="rounded-lg border border-[#d8ccb9] bg-white p-5 text-sm leading-6 text-[#555d50]">
-              Genre cards are ready above. Results stay hidden until a genre is selected.
+              Choose a genre in the filter bar to show matching Sacramento Public Library books.
             </div>
           ) : null}
 
@@ -218,9 +215,9 @@ export function SacReadsApp({ filterOptions, onSavedCountChange, totalBookCount 
 
           {hasSelectedGenre && filteredBooks.length > 0 ? (
             <>
-              <div className="grid gap-5 lg:grid-cols-3">
+              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                 {filteredBooks.map((book) => (
-                  <BookCard
+                  <RecommendationBookCard
                     book={book}
                     isSaved={savedIds.has(book.id)}
                     key={book.id}
