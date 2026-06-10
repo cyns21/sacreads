@@ -25,7 +25,7 @@ type SortOption = {
 };
 
 const sortOptions: SortOption[] = [
-  { label: "Most Relevant", value: "Title A-Z" },
+  { label: "A-Z", value: "Title A-Z" },
   { label: "Newest", value: "Newest" },
   { label: "Oldest", value: "Oldest" },
 ];

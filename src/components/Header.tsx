@@ -36,11 +36,16 @@ export function Header({ savedCount }: HeaderProps) {
         <nav aria-label="Main navigation" className="hidden items-center gap-6 md:flex">
           {navItems.map((item) => (
             <a
-              className="text-sm font-medium text-[#4e5547] transition hover:text-[#214d45]"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[#4e5547] transition hover:text-[#214d45]"
               href={item.href}
               key={item.href}
             >
-              {item.label === "Saved" && savedCount ? `Saved ${savedCount}` : item.label}
+              <span>{item.label}</span>
+              {item.label === "Saved" && savedCount ? (
+                <span className="grid size-5 place-items-center rounded-full bg-[#214d45] text-[0.7rem] font-bold leading-none text-white">
+                  {savedCount}
+                </span>
+              ) : null}
             </a>
           ))}
         </nav>
