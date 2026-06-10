@@ -5,8 +5,14 @@ import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { HowItWorks } from "@/components/HowItWorks";
 import { SacReadsApp } from "@/components/SacReadsApp";
+import type { BrowseFilterOptions } from "@/types/book";
 
-export function SacReadsHome() {
+type SacReadsHomeProps = {
+  filterOptions: BrowseFilterOptions;
+  totalBookCount: number;
+};
+
+export function SacReadsHome({ filterOptions, totalBookCount }: SacReadsHomeProps) {
   const [savedCount, setSavedCount] = useState(0);
 
   return (
@@ -14,7 +20,11 @@ export function SacReadsHome() {
       <Header savedCount={savedCount} />
       <main id="home">
         <HowItWorks />
-        <SacReadsApp onSavedCountChange={setSavedCount} />
+        <SacReadsApp
+          filterOptions={filterOptions}
+          onSavedCountChange={setSavedCount}
+          totalBookCount={totalBookCount}
+        />
       </main>
       <Footer />
     </div>

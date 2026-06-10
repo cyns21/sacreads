@@ -56,6 +56,13 @@ export type FilterOption = {
   count: number;
 };
 
+export type BrowseFilterOptions = {
+  genres: FilterOption[];
+  formats: FilterOption[];
+  languages: FilterOption[];
+  audiences: FilterOption[];
+};
+
 export type CatalogSearchFilters = {
   query: string;
   pickupBranch: string;
